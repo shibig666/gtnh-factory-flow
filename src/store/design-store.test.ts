@@ -55,7 +55,7 @@ vi.mock("@/lib/designs/design-camera", () => ({
 
 import { readLibraryTabState } from "@/lib/library/library-tab";
 import { createEmptyProject } from "@/examples";
-import { useDesignStore } from "./design-store";
+import { useDesignStore, runAgentCanvasEdit } from "./design-store";
 import { useFactoryStore } from "./factory-store";
 import { copyViewedPost } from "@/lib/community/open-post";
 
@@ -466,6 +466,18 @@ describe("two browser tabs on one library (Jack, 2026-09-23: hours lost to a sec
     await openAt();
     tabs.editing = false;
     useFactoryStore.getState().renameProject("A recipe refresh, say");
+    await useDesignStore.getState().saveActiveProject("a", useFactoryStore.getState().project);
+    expect(storage.writeDesign).not.toHaveBeenCalled();
+  });
+
+  it("saves explicit agent edits while this tab is unfocused without granting later background changes write access", async () => {
+    await openAt();
+    tabs.editing = false;
+    runAgentCanvasEdit(() => useFactoryStore.getState().renameProject("Agent edit"));
+    await useDesignStore.getState().saveActiveProject("a", useFactoryStore.getState().project);
+    expect(writesOf("a")).toBe(1);
+    storage.writeDesign.mockClear();
+    useFactoryStore.getState().renameProject("Background refresh");
     await useDesignStore.getState().saveActiveProject("a", useFactoryStore.getState().project);
     expect(storage.writeDesign).not.toHaveBeenCalled();
   });

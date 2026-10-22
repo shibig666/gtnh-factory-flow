@@ -35,7 +35,7 @@ describe("the settings box", () => {
   it("is a centred box with the mod's sections and a picture beside the rows", () => {
     render(<ModSettings onClose={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
-    expect(sections()).toEqual(["Board", "Minimap", "Sound", "Controls"]);
+    expect(sections()).toEqual(["Board", "Minimap", "Agent", "Sound", "Controls"]);
     expect(rowLabels()).toEqual([
       "Size",
       "Names when zoomed out",

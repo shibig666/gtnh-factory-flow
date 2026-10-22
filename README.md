@@ -41,6 +41,12 @@ need Supabase; see [docs/COMMUNITY.md](docs/COMMUNITY.md).
 Working notes for contributors and AI agents are in [AGENTS.md](AGENTS.md) and the
 `CLAUDE.md` file in each area's folder.
 
+## Agent integration
+
+The local MCP server lets Codex and Claude Code query recipes through the planner's HTTP
+API and build or modify a paired browser design. A companion skill guides target-driven
+planning and checks the actual solver result. See [setup and validation](docs/agent-integration.md).
+
 ## License and credits
 
 Code is MIT licensed. GTNH, Minecraft, mod assets, generated datasets and icons are not

@@ -1,0 +1,45 @@
+.agent-connection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 10px 12px;
+  font: inherit;
+  line-height: 1.5;
+  color: var(--mc-ink);
+}
+.agent-connection p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.agent-connection input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px 6px;
+  border: 1px solid var(--ms-edge);
+  background: var(--ms-side);
+  color: inherit;
+  font: inherit;
+}
+.agent-connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.agent-connection button {
+  min-height: 22px;
+  padding: 2px 10px;
+  border: 1px solid var(--ms-edge);
+  background: var(--ms-control);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.agent-connection button:hover {
+  background: var(--ms-control-hover);
+}
+.agent-connection button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -159,7 +159,7 @@ interface DesignStore {
    * resolve against the newly-active design and write the previous tab's plan
    * over it. Naming the pair lets a stale save be dropped instead.
    */
-  saveActiveProject: (designId: string | undefined, project: FactoryProject) => Promise<void>;
+  saveActiveProject: (designId: string | undefined, project: FactoryProject) => Promise<PersistOutcome | undefined>;
   /**
    * Set when this browser tab held edits to a design another tab had saved a
    * newer version of: the newer version stayed, and these edits went to a
@@ -216,8 +216,17 @@ let canvasViewEdited = false;
 /** A plan is being put up: the changes that makes are not edits. */
 let landingCanvas = false;
 
+let explicitCanvasEditDepth = 0;
+
+/** Agent commands are edits even when the player is typing in another window. */
+export function runAgentCanvasEdit<T>(edit: () => T): T {
+  explicitCanvasEditDepth += 1;
+  try { return edit(); }
+  finally { explicitCanvasEditDepth -= 1; }
+}
+
 useFactoryStore.subscribe((state, previous) => {
-  if (state.project !== previous.project && !landingCanvas && isEditingInThisTab()) {
+  if (state.project !== previous.project && !landingCanvas && (isEditingInThisTab() || explicitCanvasEditDepth > 0)) {
     canvasPlanEdited = true;
   }
 });
@@ -984,6 +993,7 @@ export const useDesignStore = create<DesignStore>((set, get) => ({
         useFactoryStore.getState().renameProject(result.copy.name);
       }
       set({ saveState: "saved", designs: sortDesigns(await listDesignSummaries()) });
+      return result;
     } catch (error) {
       set({
         saveState: "error",

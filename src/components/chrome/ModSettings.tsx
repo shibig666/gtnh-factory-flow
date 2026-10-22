@@ -21,6 +21,7 @@ import { setUiScalePercent, useUiScalePercent } from "@/lib/ui-scale";
 import { ChromeMenu, chromeAnchorOf, MENU_ANCHOR_ATTR, type ChromeAnchor } from "./ChromeMenu";
 import { knock, OPEN_CONTROLS_EVENT, OPEN_TOUR_EVENT } from "./chrome-events";
 import { SettingsPreview } from "./SettingsPreview";
+import { AgentConnectionPanel } from "../AgentConnectionPanel";
 import {
   SIZE_NAMES,
   SOUND_NAMES,
@@ -158,6 +159,9 @@ export function ModSettings({ onClose }: { onClose: () => void }) {
       ],
     },
     { name: "Minimap", rows: [], body: <MinimapSettingsRows className="ms-minimap" /> },
+    ...(typeof window !== "undefined" && ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)
+      ? [{ name: "Agent", rows: [], body: <AgentConnectionPanel /> }]
+      : []),
     {
       name: "Sound",
       rows: [

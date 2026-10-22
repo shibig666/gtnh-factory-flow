@@ -288,6 +288,7 @@ interface FactoryStore {
   powerDisplayUnit: PowerDisplayUnit;
   setPowerDisplayUnit: (unit: PowerDisplayUnit) => void;
   setProject: (project: FactoryProject, options?: LoadOptions) => void;
+  commitAgentEdit: (expected: FactoryProject, project: FactoryProject) => boolean;
   markHydratedProject: (project: FactoryProject) => void;
   undo: () => void;
   redo: () => void;
@@ -1074,6 +1075,16 @@ function withViewerGuard(
 let viewportCenter: FactoryNode["position"] | undefined;
 
 export const useFactoryStore = create<FactoryStore>(withViewerGuard((set, get, write, setPresentation) => ({
+  commitAgentEdit: (expected, candidate) => {
+    let committed = false;
+    set((state) => {
+      if (state.project !== expected || state.isReadOnly || state.checklistMode || liveUndoHandler()) return state;
+      const project = touchProject(candidate);
+      committed = true;
+      return withProjectHistory(state, { project, lastResult: solveBooks(project) });
+    });
+    return committed;
+  },
   isReadOnly: false,
   loadViewedProject: (project) => {
     quietBoardSoundsFor(1500);

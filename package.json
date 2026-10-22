@@ -9,12 +9,15 @@
     "live": "tsx src/live/main.ts",
     "build": "next build",
     "build:live": "esbuild src/live/main.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-live/live.mjs --log-level=warning",
+    "build:mcp": "esbuild src/mcp/main.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-mcp/main.mjs --log-level=warning",
+    "mcp": "tsx src/mcp/main.ts",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:icons:browsers": "node tools/browser-tests/icon-sizing.mjs",
+    "test:agent:browser": "node --import tsx tools/browser-tests/agent-flow.mjs",
     "datasets:detect": "node tools/dataset-pipeline/scripts/detect-gtnh-versions.mjs",
     "datasets:manifest": "node tools/dataset-pipeline/scripts/rebuild-manifest.mjs",
     "format": "prettier --write .",
@@ -23,6 +26,7 @@
     "prebuild": "node tools/copy-highs-wasm.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
     "@supabase/supabase-js": "^2.110.8",
     "@xyflow/react": "^12.10.2",
     "gifenc": "^1.0.3",
@@ -39,6 +43,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@modelcontextprotocol/client": "2.3.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
