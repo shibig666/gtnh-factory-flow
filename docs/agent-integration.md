@@ -30,6 +30,11 @@ The MCP never opens recipe files and never silently falls back to another source
 
 ## Configure clients
 
+DeepSeek Harness also has a [native SDK plugin](../plugins/dsh-gtnh-planner/README.md).
+Install its single package through DSH's Plugins page to get native planning tools
+and system-prompt guidance. It does not use MCP or a filesystem skill provider;
+the setup below is for clients using the standalone MCP interface.
+
 Use absolute paths. Build once after changes; the built server does not depend on the caller's working directory.
 
 Codex `config.toml`:

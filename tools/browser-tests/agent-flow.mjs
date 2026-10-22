@@ -13,7 +13,7 @@ import {
   fixtureConstraints,
 } from "../../src/lib/agent/__fixtures__/chain.ts";
 
-const output = path.resolve("scratch/agent-browser");
+const output = path.resolve(process.env.AGENT_TEST_DSH ? "scratch/dsh-browser" : "scratch/agent-browser");
 await mkdir(output, { recursive: true });
 const recipes = fixtureRecipes.map((recipe) => ({
   ...recipe,
@@ -232,15 +232,22 @@ try {
       return false;
     }
   }, "Next.js did not start");
-  client = new Client({ name: "gtnh-browser-acceptance", version: "1.0.0" });
-  await client.connect(
-    new StdioClientTransport({
-      command: process.execPath,
-      args: [path.resolve("dist-mcp/main.mjs")],
-      env: { ...process.env, GTNH_PLANNER_URL: origin },
-      stderr: "pipe",
-    }),
-  );
+  if (process.env.AGENT_TEST_DSH) {
+    const { createDshClient } = await import("../dsh/test-runtime.mjs");
+    client = await createDshClient(origin);
+    report.dshRuntime = client.runtimeVersion;
+    report.nativePlugin = "dsh-gtnh-planner";
+  } else {
+    client = new Client({ name: "gtnh-browser-acceptance", version: "1.0.0" });
+    await client.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [path.resolve("dist-mcp/main.mjs")],
+        env: { ...process.env, GTNH_PLANNER_URL: origin },
+        stderr: "pipe",
+      }),
+    );
+  }
   const callRaw = async (name, args = {}) => {
     const response = await client.callTool({ name, arguments: args });
     return response.structuredContent ?? JSON.parse(response.content[0].text);

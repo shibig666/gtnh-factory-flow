@@ -47,6 +47,9 @@ The local MCP server lets Codex and Claude Code query recipes through the planne
 API and build or modify a paired browser design. A companion skill guides target-driven
 planning and checks the actual solver result. See [setup and validation](docs/agent-integration.md).
 
+DeepSeek Harness users can install [a native DSH plugin](plugins/dsh-gtnh-planner/README.md).
+It registers planning tools and guidance through the DSH SDK, without MCP or skill installation.
+
 ## License and credits
 
 Code is MIT licensed. GTNH, Minecraft, mod assets, generated datasets and icons are not

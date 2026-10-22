@@ -37,6 +37,44 @@ async function pair(config: { url: string; token: string; apiBaseUrl: string; v:
 }
 
 describe("local agent bridge", () => {
+  it("refuses a command cancelled before dispatch", async () => {
+    const { bridge } = await setup();
+    const controller = new AbortController();
+    controller.abort();
+    expect(() => bridge.call("list_designs", {}, controller.signal)).toThrow(/abort/i);
+  });
+  it("reports an interrupted command as unknown and ignores its late acknowledgement", async () => {
+    const { bridge, config } = await setup();
+    const ws = await pair(config);
+    const received = new Promise<{ command: { requestId: string } }>((resolve) =>
+      ws.once("message", (raw) => resolve(JSON.parse(raw.toString()))),
+    );
+    const controller = new AbortController();
+    const outcome = bridge
+      .call("list_designs", {}, controller.signal)
+      .catch((error: unknown) => error);
+    const frame = await received;
+    controller.abort();
+    expect(await outcome).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    ws.send(
+      JSON.stringify({
+        t: "result",
+        requestId: frame.command.requestId,
+        result: { ok: true, value: "late" },
+      }),
+    );
+    ws.once("message", (raw) => {
+      const next = JSON.parse(raw.toString());
+      ws.send(
+        JSON.stringify({
+          t: "result",
+          requestId: next.command.requestId,
+          result: { ok: true, value: "fresh" },
+        }),
+      );
+    });
+    expect(await bridge.call("list_designs", {})).toEqual({ ok: true, value: "fresh" });
+  });
   it("authenticates an exact origin and routes a correlated browser command", async () => {
     const { bridge, config } = await setup();
     const ws = await pair(config);
