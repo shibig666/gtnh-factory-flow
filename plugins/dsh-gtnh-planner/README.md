@@ -48,6 +48,8 @@ tools; it is not needed by this plugin.
 For LAN hosting, use the [Linux / Windows production runner](../../docs/production-server.md),
 which serves the webpage and relay on one HTTP or self-signed HTTPS port.
 Configure this plugin with the runner's printed browser URL, not its wildcard listening IP.
+If the server needs a proxy to reach recipe data, configure the runner's optional
+proxy prompt or `--proxy`; the plugin still connects to the same planner URL.
 
 Use your deployed planner's HTTP or HTTPS address, or start the local **planner webpage**
 at `http://localhost:3000`. Local development can use the online dataset backend:

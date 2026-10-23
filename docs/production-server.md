@@ -35,7 +35,7 @@ Next.js 构建会下载所使用的字体，首次构建需能访问字体源。
 
 ## Linux
 
-交互启动，按提示输入监听地址、协议和端口：
+交互启动，按提示输入监听地址、协议、端口和代理服务器地址（可留空）：
 
 ```sh
 sh tools/production/start.sh
@@ -79,6 +79,37 @@ npm run serve -- --host 0.0.0.0 --protocol http --port 8080
 升级代码后重新运行 `npm ci`、`npm run build:production`，停止旧进程，再启动新进程。
 需要常驻时，可将同一条带完整参数的命令配置到 systemd 或 Windows 任务计划程序；
 非交互运行必须提供 `--host`、`--protocol`、`--port`，不能等待终端输入。
+
+## 外网配方代理
+
+交互启动的第四项是“代理服务器地址”，例如 `http://10.126.126.2:7890`。
+**留空表示不启用配方代理，即使环境变量设置了代理也不使用。**
+此选择只影响远程配方 API、数据集和图片，不改变浏览器访问地址、内部 relay 或操作系统路由。
+
+例如使用 EasyTier 访问 `10.126.126.3`，通过另一台组网电脑的代理访问配方后端：
+
+```sh
+sh tools/production/start.sh --host 0.0.0.0 --protocol http --port 40001 --public-host 10.126.126.3 --proxy http://10.126.126.2:7890
+```
+
+Windows 使用同样的参数调用 `tools/production/start.ps1`。
+代理地址支持 HTTP 和 HTTPS 代理，包括需要用户名密码的代理；启动日志不输出代理账号密码。
+暂不提供 SOCKS 地址输入，需要使用代理软件的 HTTP 或 Mixed 端口。
+
+不交互时，三个监听参数全部指定、并且省略代理参数，会读取
+`http_proxy` / `https_proxy` / `no_proxy`，也支持对应大写变量，小写优先。
+代理配置既可由启动终端继承，也可放在 `.env.production.local`。
+`--proxy` 优先于环境中的代理服务器地址，仍遵循 `NO_PROXY` / `no_proxy` 的绕过列表。
+强制关闭使用 `--no-proxy`（Bash 也可使用 `--proxy ''`）：
+
+```sh
+sh tools/production/start.sh --host 0.0.0.0 --protocol http --port 40001 --no-proxy
+```
+
+curl 能访问、但旧服务报公网 IP 的连接超时时，通常是 curl 使用了代理而旧配方转发直连。
+生产运行器为配方转发单独配置代理，不修改全局 fetch、TLS 或 HTTP agent。
+不需要设置 `NODE_USE_ENV_PROXY`。修改代理地址只需重启，不需要重建网页；
+从不支持代理的旧版本升级时，需先运行 `npm ci` 和 `npm run build:server`。
 
 ## 地址与证书
 
@@ -153,3 +184,9 @@ npm run test:production:browser
 经过真实配对 API 和 WS/WSS，再刷新页面检查模块错误。配方使用浏览器夹具，
 不证明服务器上已安装真实 GTNH 数据集。Windows 可设置 `GTNH_TEST_WINDOWS_WRAPPER=1`
 让验收使用 PowerShell 包装脚本。报告位于 `scratch/production-browser/`。
+多个网卡时可用 `GTNH_TEST_PUBLIC_HOST` 指定验收使用的本机 IP，例如 EasyTier 虚拟网卡地址。
+
+使用远程配方后端构建后，还可以运行 `npm run test:production:proxy`。
+该验收使用实际生产运行器与隔离的代理、HTTPS 上游夹具，验证配方查询、POST、图片走代理，
+配对仍直连内部 relay，日志不输出代理账号密码；不会向真实上游发送配方请求。
+报告位于 `scratch/production-proxy/`。

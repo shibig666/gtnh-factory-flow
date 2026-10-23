@@ -5,6 +5,8 @@ The MCP server exposes recipe discovery and a paired browser canvas, locally or 
 For LAN hosting on Linux or Windows, the [production runner](production-server.md)
 starts the built webpage and relay on one HTTP or self-signed HTTPS port. Existing
 MCP and native DSH clients use its printed URL without another adapter.
+When the recipe backend requires an outbound proxy, configure it in that server's
+startup prompt or `--proxy` option; neither agent adapter needs the proxy address.
 
 ## Start
 

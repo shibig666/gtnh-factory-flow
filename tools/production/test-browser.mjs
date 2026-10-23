@@ -12,9 +12,11 @@ import { RelayConnection } from "../../src/lib/agent/relay-connection.ts";
 const root = process.cwd();
 const output = path.resolve("scratch/production-browser");
 await mkdir(output, { recursive: true });
-const publicHost = Object.values(networkInterfaces())
-  .flat()
-  .find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
+const publicHost =
+  process.env.GTNH_TEST_PUBLIC_HOST ??
+  Object.values(networkInterfaces())
+    .flat()
+    .find((entry) => entry?.family === "IPv4" && !entry.internal)?.address;
 assert.ok(publicHost, "A LAN IPv4 address is required");
 const report = [];
 const version = {
@@ -90,6 +92,12 @@ for (const protocol of ["http", "https"]) {
     browser = await chromium.launch({ headless: true, args: ["--no-proxy-server"] });
     const context = await browser.newContext({ ignoreHTTPSErrors: protocol === "https" });
     // Recipe fixtures are browser-only; pairing and WebSocket traffic reach the production server.
+    await context.route("**/datasets/gtnh/**", (route) =>
+      route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#b87533"/></svg>',
+      }),
+    );
     await context.route("**/datasets/gtnh/datasets.manifest.json", (route) =>
       route.fulfill({
         json: { schemaVersion: 1, latestStableVersion: version.id, versions: [version] },
@@ -117,8 +125,20 @@ for (const protocol of ["http", "https"]) {
     );
     const page = await context.newPage();
     const errors = [];
+    const loading = new Set();
+    page.on("request", (request) => loading.add(request.url()));
+    page.on("requestfinished", (request) => loading.delete(request.url()));
+    page.on("requestfailed", (request) => loading.delete(request.url()));
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(origin, { waitUntil: "load" });
+    try {
+      await page.goto(origin, { waitUntil: "load" });
+    } catch (error) {
+      await writeFile(
+        path.join(output, `${protocol}-pending.json`),
+        JSON.stringify([...loading], null, 2),
+      );
+      throw error;
+    }
     if (protocol === "http") {
       assert.deepEqual(
         await page.evaluate(() => [

@@ -14,10 +14,13 @@ Options:
   --port         Public port, 1-65535 (prompted when omitted)
   --public-host  Browser/plugin hostname or IP; auto-detected for wildcard listeners
   --state-dir    Certificate directory; defaults to .runtime/production
+  --proxy        HTTP(S) proxy URL for recipe data; an empty value disables proxying
+  --no-proxy     Disable recipe proxying even when environment variables are set
   --help         Show this help
 
 Build first: npm ci && npm run build:production
-With no arguments, an interactive terminal asks for the three listening options.
+With no arguments, an interactive terminal asks for listening options and an optional proxy URL.
+With complete CLI listening options, omitted proxy flags use HTTP(S)_PROXY/NO_PROXY.
 Browser, DSH and MCP must use the same printed URL, never 0.0.0.0.
 `;
 
@@ -56,6 +59,27 @@ export function resolveConfig(values, interfaces = networkInterfaces()) {
   if (!wildcard && isIP(host) && isIP(publicHost) && host !== publicHost)
     throw new Error("访问 IP 与监听 IP 不同；请改用 0.0.0.0、:: 或相同的 IP。");
   const authority = isIP(publicHost) === 6 ? `[${publicHost}]` : publicHost;
+  if (values["no-proxy"] && values.proxy !== undefined)
+    throw new Error("--proxy 与 --no-proxy 不能同时设置。");
+  let proxy = { mode: "env" };
+  if (values["no-proxy"] || values.proxy?.trim() === "") proxy = { mode: "direct" };
+  else if (values.proxy !== undefined) {
+    let url;
+    try {
+      url = new URL(values.proxy.trim());
+    } catch {
+      /* Report the same validation message. */
+    }
+    if (
+      !url ||
+      !["http:", "https:"].includes(url.protocol) ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    )
+      throw new Error("代理地址请填写完整的 http:// 或 https://地址和端口，或留空关闭代理。");
+    proxy = { mode: "explicit", url: url.href };
+  }
   return {
     host,
     protocol,
@@ -64,6 +88,7 @@ export function resolveConfig(values, interfaces = networkInterfaces()) {
     origin: new URL(`${protocol}://${authority}:${port}`).origin,
     stateDir: values["state-dir"] ?? ".runtime/production",
     candidates,
+    proxy,
   };
 }
 
@@ -76,6 +101,8 @@ export async function readConfig(args = process.argv.slice(2)) {
       port: { type: "string" },
       "public-host": { type: "string" },
       "state-dir": { type: "string" },
+      proxy: { type: "string" },
+      "no-proxy": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -92,6 +119,10 @@ export async function readConfig(args = process.argv.slice(2)) {
     };
     try {
       for (const key of missing) values[key] = (await terminal.question(questions[key])).trim();
+      if (values.proxy === undefined && !values["no-proxy"])
+        values.proxy = (
+          await terminal.question("代理服务器地址（例如 http://10.126.126.2:7890，留空不启用）：")
+        ).trim();
     } finally {
       terminal.close();
     }

@@ -24,6 +24,7 @@
     "build:server": "esbuild tools/production/server.mjs --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-server/server.mjs --log-level=warning",
     "build:production": "npm run build && npm run build:server",
     "test:production:browser": "node --import tsx tools/production/test-browser.mjs",
+    "test:production:proxy": "node tools/production/test-proxy.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -54,6 +55,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "selfsigned": "^5.5.0",
+    "undici": "^7.30.1",
     "ws": "^8.21.3",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"

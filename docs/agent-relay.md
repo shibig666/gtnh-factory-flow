@@ -20,6 +20,7 @@ flowchart LR
 局域网 Linux / Windows 可直接使用 [生产运行脚本](production-server.md)：
 构建后运行 `npm run serve -- --host 0.0.0.0 --protocol http --port 8080`，
 网页与 relay 共用一个外部端口，也支持自动生成自签名 HTTPS 证书。
+远程配方需要外网代理时，可在启动提示中填写代理地址或使用 `--proxy`，留空关闭配方代理。
 下面是已有反向代理环境下的独立进程部署方式。
 
 这是与 Live 协作服务独立的进程。现有 Live 端口、账号权限、租约和保存协议不变。

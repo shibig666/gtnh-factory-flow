@@ -9,6 +9,7 @@ import nextEnv from "@next/env";
 import { AgentRelayService } from "../../src/agent-relay/service.ts";
 import { loadCertificate } from "./certificate.mjs";
 import { help, readConfig } from "./config.mjs";
+import { DatasetProxy, proxyDescription } from "./dataset-proxy.mjs";
 
 /** One external listener serves Next.js, pairing HTTP, and the relay WebSocket. */
 async function startProduction(root, config) {
@@ -37,6 +38,11 @@ async function startProduction(root, config) {
     config.protocol === "https"
       ? await loadCertificate(path.resolve(root, config.stateDir), config.publicHost)
       : undefined;
+  const datasets = datasetProxy
+    ? new DatasetProxy(datasetProxy.slice(0, -"/api/datasets/:path*".length), {
+        proxy: config.proxy,
+      })
+    : undefined;
   const proxyToken = randomBytes(32).toString("hex");
   const relay = new AgentRelayService({
     origin: config.origin,
@@ -55,7 +61,7 @@ async function startProduction(root, config) {
       // Upgraded sockets are not closed by server.close().
       for (const socket of sockets) socket.destroy();
       listener?.closeAllConnections();
-      await Promise.allSettled([closed, relay.stop(), app?.close()]);
+      await Promise.allSettled([closed, relay.stop(), app?.close(), datasets?.close()]);
     })());
   try {
     const relayPort = await relay.start(0, "127.0.0.1");
@@ -84,6 +90,10 @@ async function startProduction(root, config) {
           Location: `${config.origin}${req.url?.startsWith("/") ? req.url : "/"}`,
         });
         res.end();
+        return;
+      }
+      if (datasets?.handles(req.url)) {
+        void datasets.forward(req, res);
         return;
       }
       void handle(req, res).catch(() => {
@@ -161,6 +171,8 @@ async function main() {
   console.log(
     `[server] 构建 ${running.buildId}；配方来源：${running.datasetProxy ?? "本地 public/datasets/gtnh"}`,
   );
+  if (running.datasetProxy)
+    console.log(`[server] 配方代理设置：${proxyDescription(process.env, config.proxy)}`);
   if (!running.datasetProxy && !running.localManifest)
     console.warn(
       "[server] 尚未配置配方：放入本地数据集，或设置 GTNH_DATASET_BACKEND_URL 后重新构建。参见 docs/production-server.md。",
