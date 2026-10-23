@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { createServer, request as httpRequest } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { spawn } from "node:child_process";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { networkInterfaces } from "node:os";
 import { PNG } from "pngjs";
 import { AgentRelayService } from "../../src/agent-relay/service.ts";
 import { chromium } from "playwright-core";
@@ -16,8 +18,10 @@ import {
 } from "../../src/lib/agent/__fixtures__/chain.ts";
 
 const relayMode = process.env.AGENT_TEST_RELAY === "1";
+const publicHttp = process.env.AGENT_TEST_PUBLIC_HTTP === "1";
+const selfSigned = process.env.AGENT_TEST_SELF_SIGNED_HTTPS === "1";
 const output = path.resolve(
-  `scratch/${process.env.AGENT_TEST_DSH ? "dsh" : "agent"}-${relayMode ? "relay-" : ""}browser`,
+  `scratch/${process.env.AGENT_TEST_DSH ? "dsh" : "agent"}-${relayMode ? "relay-" : ""}${publicHttp ? "http-" : selfSigned ? "tls-" : ""}browser`,
 );
 await mkdir(output, { recursive: true });
 const recipes = fixtureRecipes.map((recipe) => ({
@@ -61,7 +65,13 @@ await new Promise((resolve) => portFinder.listen(0, "127.0.0.1", resolve));
 const nextPort = portFinder.address().port;
 await new Promise((resolve) => portFinder.close(resolve));
 
-const proxy = createServer((req, res) => {
+const proxyServer = selfSigned
+  ? createHttpsServer.bind(null, {
+      key: await readFile("src/lib/agent/__fixtures__/tls-key.pem"),
+      cert: await readFile("src/lib/agent/__fixtures__/tls-cert.pem"),
+    })
+  : createServer;
+const proxy = proxyServer((req, res) => {
   const url = new URL(req.url, "http://localhost");
   if (process.env.AGENT_TEST_LLM === "claude" && url.pathname === "/test-tools") {
     void client.listTools().then((result) => {
@@ -194,8 +204,14 @@ const proxy = createServer((req, res) => {
   });
   req.pipe(upstream);
 });
-await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
-const origin = `http://127.0.0.1:${proxy.address().port}`;
+const testHost = publicHttp
+  ? Object.values(networkInterfaces())
+      .flat()
+      .find((entry) => entry?.family === "IPv4" && !entry.internal)?.address
+  : "127.0.0.1";
+assert.ok(testHost, "A non-loopback IPv4 address is required for public HTTP acceptance");
+await new Promise((resolve) => proxy.listen(0, publicHttp ? "0.0.0.0" : "127.0.0.1", resolve));
+const origin = `${selfSigned ? "https" : "http"}://${testHost}:${proxy.address().port}`;
 let relay;
 let relayPort;
 const relayBrowserSockets = new Set();
@@ -271,7 +287,7 @@ try {
   });
   await waitFor(async () => {
     try {
-      return (await fetch(`${origin}/api/version`)).ok;
+      return (await fetch(`http://127.0.0.1:${nextPort}/api/version`)).ok;
     } catch {
       return false;
     }
@@ -321,6 +337,8 @@ try {
     const code = (await call("begin_pairing")).code;
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByRole("tab", { name: "Agent", exact: true }).click();
+    if (publicHttp)
+      await page.getByRole("alert").filter({ hasText: "HTTP does not encrypt" }).waitFor();
     await page.getByLabel("Agent pairing code").fill(code);
     if (relayMode)
       await page.getByLabel("Allow new designs in this session").setChecked(allowCreate);
@@ -329,8 +347,14 @@ try {
     await waitFor(async () => Boolean((await getStatus()).dataset), "Dataset did not load");
     await page.keyboard.press("Escape");
   };
-  browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  browser = await chromium.launch({
+    headless: true,
+    ...(publicHttp ? { args: ["--no-proxy-server"] } : {}),
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1600, height: 1000 },
+    ignoreHTTPSErrors: selfSigned,
+  });
   await context.addInitScript(() =>
     localStorage.setItem("gtnh-factory-flow.mod-announcement-dismissed.v1", "1"),
   );
@@ -338,6 +362,19 @@ try {
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(origin, { waitUntil: "load" });
   await pair(page);
+  if (publicHttp) {
+    assert.equal(await page.evaluate(() => window.isSecureContext), false);
+    assert.equal((await call("get_status")).securityWarnings[0].code, "HTTP_UNENCRYPTED");
+    report.publicHttpWithWarning = true;
+  }
+  if (selfSigned) {
+    assert.ok(
+      (await call("get_status")).securityWarnings.some(
+        (warning) => warning.code === "TLS_UNTRUSTED",
+      ),
+    );
+    report.untrustedTlsWithWarning = true;
+  }
   const initial = await getStatus();
   await call("create_design", {
     sessionId: initial.sessionId,

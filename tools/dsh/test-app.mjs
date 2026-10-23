@@ -92,6 +92,16 @@ try {
     await page.getByRole("textbox", { name: "服务器地址", exact: true }).inputValue(),
     "https://planner.example.com",
   );
+  await page.getByRole("treeitem", { name: "默认工作区", exact: true }).click();
+  const created = page.waitForResponse((response) =>
+    response.url().includes("/api/session/create"),
+  );
+  await page.getByRole("button", { name: "新建会话", exact: true }).first().click();
+  const creation = await created;
+  const creationBody = await creation.text();
+  assert.equal(creation.status(), 200, creationBody);
+  assert.ok(creationBody.includes('"sessionId"'), creationBody);
+  assert.ok(!creationBody.includes("agent-preset/invalid"), creationBody);
   assert.deepEqual(errors, [], "The full SDK roster must mount without slot ownership conflicts");
   await page.screenshot({ path: path.join(output, "plugin-settings.png"), fullPage: true });
   const report = {
@@ -101,6 +111,7 @@ try {
     pluginDetailSettings: true,
     hostSave: true,
     reloadPersistence: true,
+    conversationCreated: true,
     pageErrors: errors,
   };
   await writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));

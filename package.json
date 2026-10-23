@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
+    "@noble/hashes": "^2.4.0",
     "@supabase/supabase-js": "^2.110.8",
     "@xyflow/react": "^12.10.2",
     "gifenc": "^1.0.3",

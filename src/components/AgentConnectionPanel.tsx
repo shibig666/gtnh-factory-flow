@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { connectAgent, disconnectAgent, useAgentConnection } from "@/lib/agent/browser-session";
 import { useDesignStore } from "@/store/design-store";
 import "./agent-connection.css";
+import { httpWarning } from "@/lib/agent/connection-security";
+
+const subscribeOrigin = () => () => {};
 
 export function AgentConnectionPanel() {
   const connection = useAgentConnection();
@@ -13,9 +16,18 @@ export function AgentConnectionPanel() {
   const [code, setCode] = useState("");
   const [allowCreate, setAllowCreate] = useState(false);
   const [error, setError] = useState<string>();
+  const origin = useSyncExternalStore(
+    subscribeOrigin,
+    () => window.location.origin,
+    () => "",
+  );
+  const securityWarning = origin ? httpWarning(origin)?.message : undefined;
   return (
     <div className="agent-connection" data-agent-panel>
       <p>Authorize an agent to edit this design. Keep this tab open. Each batch can be undone.</p>
+      {securityWarning ? (
+        <p role="alert">Warning: {securityWarning} Connection is allowed.</p>
+      ) : null}
       <p role="status">
         {connection.state === "connected"
           ? "Connected"

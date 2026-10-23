@@ -8,6 +8,7 @@ import {
   SERVER_SETTINGS_GUIDANCE,
 } from "@/lib/agent/guidance";
 import { PlannerApi } from "@/lib/agent/data-client";
+import { PlannerTransport } from "@/lib/agent/planner-transport";
 import { createPlannerTools } from "@/lib/agent/tools";
 import { errorResult } from "@/lib/agent/protocol";
 import instructions from "./instructions.md";
@@ -23,7 +24,7 @@ export const Config = Schema.object({
     .volatile(),
   connectionMode: Schema.union(["auto", "local", "relay"])
     .default("auto")
-    .description("Auto: HTTP loopback uses a local bridge; HTTPS uses the website relay.")
+    .description("Auto: HTTP loopback uses a local bridge; remote HTTP(S) uses the website relay.")
     .volatile(),
 });
 
@@ -31,19 +32,13 @@ export async function apply(ctx, config) {
   function readConfig(value = config) {
     const api = new PlannerApi(value.plannerUrl.get());
     const mode = value.connectionMode.get();
-    const transport = connectionMode(api.baseUrl, mode);
-    if (
-      transport === "relay" &&
-      new URL(api.baseUrl).protocol !== "https:" &&
-      !["localhost", "127.0.0.1", "[::1]"].includes(new URL(api.baseUrl).hostname)
-    ) {
-      throw new Error("Remote agent connections require HTTPS.");
-    }
+    connectionMode(api.baseUrl, mode);
     return { api, mode, key: `${api.baseUrl}|${mode}` };
   }
-  // Validate before the host persists a settings edit, including combinations of fields.
-  ctx.on("internal/config", (_raw, next) => {
+  // Validate only this fiber; session presets use unrelated array-shaped group configs.
+  ctx.on("internal/config", function (_raw, next) {
     const raw = next();
+    if (this !== ctx.fiber) return raw;
     readConfig(Config(raw));
     return raw;
   });
@@ -54,9 +49,14 @@ export async function apply(ctx, config) {
     const next = readConfig();
     if (current?.key === next.key) return current;
     const previous = current;
+    const transport = new PlannerTransport(next.api.baseUrl, (warning) =>
+      ctx.logger.warn(warning.message),
+    );
     const session = {
       ...next,
-      bridge: createAgentConnection(next.api.baseUrl, next.mode),
+      api: new PlannerApi(next.api.baseUrl, transport.request, () => transport.warnings()),
+      bridge: createAgentConnection(next.api.baseUrl, next.mode, transport),
+      transport,
       controller: new AbortController(),
     };
     current = session;
@@ -113,11 +113,14 @@ export async function apply(ctx, config) {
         const signal = AbortSignal.any([exec.signal, session.controller.signal]);
         signal.throwIfAborted();
         // Bind cancellation per call; sharing a mutable signal would cancel unrelated requests.
-        const requestApi = new PlannerApi(api.baseUrl, (input, init) =>
-          fetch(input, {
-            ...init,
-            signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
-          }),
+        const requestApi = new PlannerApi(
+          api.baseUrl,
+          (input, init) =>
+            session.transport.request(input, {
+              ...init,
+              signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
+            }),
+          () => session.transport.warnings(),
         );
         const requestBridge = {
           status: () => bridge.status(),

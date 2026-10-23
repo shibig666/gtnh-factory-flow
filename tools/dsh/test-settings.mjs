@@ -94,6 +94,11 @@ try {
   assert.equal(descriptor().applies, "live");
   const entry = [...ctx.loader.entries()].find((entry) => entry.options.id === "gtnh-planner");
   const fiber = entry.fiber;
+  // Session presets mount array-configured groups after the global plugin starts.
+  const groupId = await ctx.loader.create({ name: "cordis:group", config: [] });
+  await ctx.loader.await();
+  await ctx.loader.resolve(groupId).fiber.await();
+  assert.equal(ctx.loader.resolve(groupId).fiber.state, 2);
   const invoke = (name) =>
     ctx.tools.execute({
       callId: crypto.randomUUID(),
@@ -142,7 +147,6 @@ try {
   const accepted = await readFile(patchPath, "utf8");
   for (const config of [
     { plannerUrl: "https://example.com/path" },
-    { plannerUrl: "http://example.com" },
     { plannerUrl: "https://user:secret@example.com" },
     { plannerUrl: "https://example.com", connectionMode: "local" },
   ]) {
@@ -154,9 +158,19 @@ try {
     );
     assert.equal((await invoke("get_status")).value.plannerUrl, origins[1]);
   }
+  await ctx.settings.update(
+    "gtnh-planner",
+    { plannerUrl: "http://planner.example", connectionMode: "relay" },
+    descriptor().revision,
+  );
+  const insecureStatus = (await invoke("get_status")).value;
+  assert.equal(insecureStatus.plannerUrl, "http://planner.example");
+  assert.equal(insecureStatus.securityWarnings[0].code, "HTTP_UNENCRYPTED");
   Object.assign(report, {
     pass: true,
     liveSettings: true,
+    unrelatedPresetGroups: true,
+    publicHttpWithWarning: true,
     persistentProfile: true,
     newRecipeOrigin: true,
     oldBridgeClosed: true,

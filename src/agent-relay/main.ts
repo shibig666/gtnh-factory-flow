@@ -1,8 +1,11 @@
 import { AgentRelayService } from "./service";
+import { httpWarning } from "@/lib/agent/connection-security";
 
 async function main() {
   const origin = process.env.AGENT_PUBLIC_ORIGIN;
-  if (!origin) throw new Error("Set AGENT_PUBLIC_ORIGIN to the planner's public HTTPS origin.");
+  if (!origin) throw new Error("Set AGENT_PUBLIC_ORIGIN to the planner's public HTTP(S) origin.");
+  const warning = httpWarning(origin);
+  if (warning) console.warn(`[agent-relay] ${warning.message}`);
   const relay = new AgentRelayService({
     origin,
     proxyToken: process.env.AGENT_RELAY_PROXY_TOKEN,

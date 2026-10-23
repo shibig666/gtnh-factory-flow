@@ -13,7 +13,10 @@ describe("shared agent connection contract", () => {
     expect(connectionMode("https://localhost")).toBe("relay");
     expect(createAgentConnection("https://planner.example")).toBeInstanceOf(RelayConnection);
     expect(connectionMode("http://127.0.0.1:3000", "relay")).toBe("relay");
-    expect(() => createAgentConnection("http://public.example")).toThrow("HTTPS");
+    expect(createAgentConnection("http://public.example").status()).toMatchObject({
+      transport: "relay",
+      securityWarnings: [{ code: "HTTP_UNENCRYPTED" }],
+    });
     expect(() => connectionMode("https://public.example", "local")).toThrow("loopback");
     expect(() => connectionMode("https://public.example", "invalid" as never)).toThrow("mode");
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { AgentError } from "./protocol";
+import { randomUUID } from "@/lib/random-id";
 import {
   AGENT_IMAGE_CHUNK_BYTES,
   MAX_AGENT_IMAGE_BYTES,
@@ -28,7 +29,7 @@ export function clearAgentImages() {
 
 function requestCapture(): Promise<FlowExportCapture> {
   return new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID();
+    const requestId = randomUUID();
     const cleanup = () => {
       clearTimeout(timer);
       window.removeEventListener(FLOW_IMAGE_EXPORT_COMPLETE_EVENT, complete);
@@ -88,11 +89,12 @@ export async function captureAgentImage(
     );
   const bytes = await blob.arrayBuffer();
   const header = new DataView(bytes);
-  const sha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  const digest = globalThis.crypto?.subtle
+    ? new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))
+    : (await import("@noble/hashes/sha2.js")).sha256(new Uint8Array(bytes));
+  const sha256 = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   checkCurrent();
-  const artifactId = crypto.randomUUID();
+  const artifactId = randomUUID();
   const manifest = imageManifestSchema.parse({
     artifactId,
     mimeType: "image/png",

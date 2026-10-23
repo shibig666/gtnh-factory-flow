@@ -2,7 +2,7 @@
 
 DSH 原生插件和通用 MCP 共用工具、数据客户端、连接工厂和中转协议。
 用户配置你部署的网页地址，在网页中批准工程，即可让 agent 查询配方、编辑和验证产线。
-两端都主动连接服务器的 HTTPS/WSS 443，客户端无需监听端口、端口映射或 NAT 穿透。
+两端都主动连接服务器的 HTTP(S)/WS(S) 地址，客户端无需监听端口、端口映射或 NAT 穿透。
 
 ```mermaid
 flowchart LR
@@ -102,8 +102,8 @@ Next.js 的开发服务器不会替代 WSS 反代；本地测试完整中转可�
 
 ## 用户安装与配对
 
-DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.2.tgz`，
-进入 **插件 > dsh-gtnh-planner > 服务器连接**，填写服务器地址，选择“自动”，
+DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.4.0.tgz`，
+完全重启 DSH 后台或 Desktop，再进入 **插件 > dsh-gtnh-planner > 服务器连接**，填写服务器地址，选择“自动”，
 点击“保存连接设置”。设置保存在当前 DSH profile，立即生效，无需重启。
 修改地址或模式会关闭旧连接并取消未完成的操作，需要在新地址网页重新配对。
 若操作被中断，先检查工程现状，再决定下一步。
@@ -138,10 +138,14 @@ DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.2.tgz`
 ```
 
 同时安装仓库中的 `skills/gtnh-production-planner`，更新后重新复制到客户端技能目录。
-MCP 进程仍在用户机器上运行；它以 stdio 接入 agent，以 HTTPS/WSS 出站访问网站。
+MCP 进程仍在用户机器上运行；它以 stdio 接入 agent，以 HTTP(S)/WS(S) 出站访问网站。
 
-`auto` 在 HTTP 回环地址使用兼容的本地桥接；HTTPS 使用 relay。
-`relay` 可以在 HTTP 回环地址强制使用中转，方便测试；公网必须 HTTPS。
+`auto` 在 HTTP 回环地址使用兼容的本地桥接；其他 HTTP(S) 地址使用 relay。
+`relay` 可以在 HTTP 回环地址强制使用中转，方便测试。
+公网 HTTP 允许连接，但界面、工具结果及日志会警告数据、配对凭据和编辑内容未加密。
+HTTPS 证书校验失败时，DSH/MCP 会仅对配置的网站使用兼容连接，并在工具结果和日志中
+返回 `TLS_UNTRUSTED` 身份未验证警告。不会修改进程级 TLS 设置，不跟随跨站重定向，
+也不会因普通网络错误重试已发出的写操作。浏览器仍需由用户接受网站本身的证书警告。
 `local` 只能用于回环地址。配置错误不会静默切换数据来源或传输模式。
 兼容的旧式本地配对仍授权整个浏览器会话，包含新建设计；网页会明确显示这一范围。
 需要按工程授权时，即使在回环地址也应选择 `relay`。
@@ -180,6 +184,23 @@ npm run build
 npm run test:agent:relay:browser
 npm run test:dsh:relay:browser
 ```
+
+测试公网 HTTP（PowerShell）：
+
+```powershell
+$env:AGENT_TEST_PUBLIC_HTTP = '1'
+npm run test:agent:relay:browser
+npm run test:dsh:relay:browser
+Remove-Item Env:AGENT_TEST_PUBLIC_HTTP
+```
+
+自签名 HTTPS 全链路验收使用 `AGENT_TEST_SELF_SIGNED_HTTPS=1` 运行相同的两个中转验收。
+夹具只在测试浏览器中接受该证书，不修改 Node 进程的全局证书策略。
+
+该验收使用非回环网卡地址，确认浏览器不是安全上下文，并完成编辑、排列与图片校验。
+自签名 HTTPS/WSS、警告、取消、拒绝重定向和进程 TLS 隔离由
+`src/lib/agent/planner-transport.test.ts` 的本地证书夹具验证。
+启用新的兼容策略需要同时更新网页、relay 和 agent 安装包；仅更新客户端不会改变旧网页的限制。
 
 浏览器验收使用真正的 Next.js、独立 relay、同源反代、headless Chromium 和人工配方夹具。
 同一验收分别通过真实 stdio MCP 客户端与实际安装包中的 DSH 原生 SDK 工具执行，覆盖配对、编辑、求解、撤销、排列、保存及数据版本冲突。

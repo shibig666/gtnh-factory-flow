@@ -12,7 +12,10 @@ These rules cover `src/lib/agent`, `src/agent-relay`, `src/mcp`,
   `CONNECTION_GUIDANCE` is shared by both runtime adapters and pinned against the
   skill. Update the plugin README, MCP guide and relay guide when setup changes.
   `IMAGE_GUIDANCE` pins the arrange/export workflow against the skill as well.
-- Relay clients only dial the configured website. Public origins require HTTPS;
+- Relay clients only dial the configured website. Public HTTP is allowed with an
+  unencrypted-traffic warning. Certificate failures may use origin-scoped HTTPS/WSS
+  compatibility with a warning; never disable process-wide TLS checks or follow
+  credentials to another origin. Other failures never trigger write retries.
   HTTP loopback supports explicit relay testing and the legacy local bridge.
   Recipe authority remains the configured site's API, never direct dataset files.
 - Dataset availability and GTNH version selection come from the site's manifest.
@@ -49,6 +52,10 @@ After `test:dsh:install`, run `test:dsh:app` for client registration or settings
 changes. It mounts the complete DSH Web roster, opens the real package detail
 page and verifies saved settings after reload; isolated component fixtures cannot
 detect conflicts with the host's slot declarations.
+The app test must create a real conversation after loading the plugin. Its config
+hook must check the owning fiber before validating, so unrelated preset groups
+retain their array configs. Public HTTP relay acceptance sets `AGENT_TEST_PUBLIC_HTTP=1`
+and checks editing and image export in a browser without a secure context.
 
 Deployment templates and current scope: `docs/agent-relay.md`. A build or push
 does not authorize deployment.

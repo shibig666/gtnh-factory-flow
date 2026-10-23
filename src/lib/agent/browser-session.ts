@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { randomUUID } from "@/lib/random-id";
 import { useFactoryStore } from "@/store/factory-store";
 import { useDesignStore, runAgentCanvasEdit } from "@/store/design-store";
 import { liveDesignIdInThisTab } from "@/store/live-edit-gate";
@@ -43,7 +44,7 @@ export const useAgentConnection = create<{
   designId?: string;
   allowCreate?: boolean;
 }>(() => ({ state: "disconnected" }));
-const sessionId = typeof crypto !== "undefined" ? crypto.randomUUID() : "server";
+const sessionId = typeof crypto !== "undefined" ? randomUUID() : "server";
 let revision = 0;
 let socket: WebSocket | undefined;
 let stopTracking: (() => void) | undefined;
@@ -150,15 +151,8 @@ export async function connectAgent(code: string, options: { allowCreate?: boolea
         atob(code.trim().slice(RELAY_PAIRING_PREFIX.length).replace(/-/g, "+").replace(/_/g, "/")),
       ),
     );
-    if (
-      config.origin !== window.location.origin ||
-      (window.location.protocol !== "https:" &&
-        !["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname))
-    )
-      throw new AgentError(
-        "ORIGIN_MISMATCH",
-        "Open the exact HTTPS planner address used by the agent.",
-      );
+    if (config.origin !== window.location.origin)
+      throw new AgentError("ORIGIN_MISMATCH", "Open the exact planner address used by the agent.");
     if (status().readOnly)
       throw new AgentError(
         "READ_ONLY",
@@ -619,7 +613,7 @@ export async function executeBrowserCommand(
     checkConnected();
     checkTarget(args, true);
     const original = useFactoryStore.getState().project;
-    const edit = applyAgentActions(original, actions, recipes, () => crypto.randomUUID());
+    const edit = applyAgentActions(original, actions, recipes, randomUUID);
     const committed = runAgentCanvasEdit(() =>
       useFactoryStore.getState().commitAgentEdit(original, edit.project),
     );

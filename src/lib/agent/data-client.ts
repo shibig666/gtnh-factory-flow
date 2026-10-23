@@ -2,6 +2,7 @@ import type { DatasetManifest, DatasetVersion, RecipeSummary } from "@/lib/datas
 import { recipeSchema } from "@/lib/model/schemas";
 import type { Recipe } from "@/lib/model/types";
 import { AgentError, type DatasetIdentity } from "./protocol";
+import type { ConnectionWarning } from "./connection-security";
 
 const VISUAL_KEYS = new Set(["iconPath", "iconAtlas", "dominantColor", "tooltip", "nei"]);
 
@@ -62,6 +63,7 @@ export class PlannerApi {
   constructor(
     baseUrl: string,
     private readonly request: typeof fetch = globalThis.fetch.bind(globalThis),
+    readonly securityWarnings: () => ConnectionWarning[] = () => [],
   ) {
     const url = new URL(baseUrl);
     if (

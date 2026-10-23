@@ -47,12 +47,11 @@ window.__ModuleLoader__.load({
           )
             throw Error();
           const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-          if (!loopback && url.protocol !== "https:") throw Error();
           if (draft.connectionMode === "local" && !loopback) throw Error();
         } catch {
           setMessage({
             error: true,
-            text: "请输入完整的网站地址，不包含路径或账号。公网地址须使用 HTTPS；本地模式仅支持 localhost、127.0.0.1 或 [::1]。",
+            text: "请输入完整的 HTTP 或 HTTPS 网站地址，不包含路径或账号。本地模式仅支持 localhost、127.0.0.1 或 [::1]。",
           });
           return;
         }
@@ -83,6 +82,15 @@ window.__ModuleLoader__.load({
         } finally {
           setSaving(false);
         }
+      }
+      let httpNotice = false;
+      try {
+        const address = new URL(value.plannerUrl);
+        httpNotice =
+          address.protocol === "http:" &&
+          !["localhost", "127.0.0.1", "[::1]"].includes(address.hostname);
+      } catch {
+        /* Incomplete addresses remain editable. */
       }
       return React.createElement(
         "form",
@@ -125,7 +133,19 @@ window.__ModuleLoader__.load({
         React.createElement(
           "p",
           { style: { margin: 0 } },
-          "自动模式：公网 HTTPS 使用服务器中转，无需开放本机端口；本机 HTTP 使用本地连接。更改配置会关闭旧连接，需要重新配对。",
+          "自动模式：公网地址使用服务器中转，无需开放本机端口；本机 HTTP 使用本地连接。更改配置会关闭旧连接，需要重新配对。",
+        ),
+        httpNotice
+          ? React.createElement(
+              "p",
+              { role: "alert" },
+              "警告：HTTP 不加密配方、配对凭据和编辑数据，网络中的其他人可能读取或篡改。仍允许连接。",
+            )
+          : null,
+        React.createElement(
+          "p",
+          { style: { margin: 0 } },
+          "HTTPS 证书不受信任时仍允许连接，并在工具结果中显示身份未验证警告。该兼容仅适用于此服务器；浏览器需自行接受证书警告。",
         ),
         snapshot.status !== "ready"
           ? React.createElement(

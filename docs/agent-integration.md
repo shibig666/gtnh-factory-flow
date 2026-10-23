@@ -1,10 +1,10 @@
 # GTNH Factory Flow MCP
 
-The MCP server exposes recipe discovery and a paired browser canvas, locally or on a deployed HTTPS site. The companion skill guides target-driven recipe selection, graph construction and solver validation. It does not run another LLM or need a separate model API key. For public hosting, follow the [relay deployment guide](agent-relay.md).
+The MCP server exposes recipe discovery and a paired browser canvas, locally or on a deployed HTTP(S) site. The companion skill guides target-driven recipe selection, graph construction and solver validation. It does not run another LLM or need a separate model API key. For public hosting, follow the [relay deployment guide](agent-relay.md).
 
 ## Start
 
-Use Node.js 20 or newer (CI uses 24). In the repository:
+Use Node.js 20.19 or newer (CI uses 24). In the repository:
 
 ```sh
 npm ci
@@ -26,7 +26,7 @@ MCP -> configured planner /api/datasets/... -> local dataset files
                                         or -> configured remote dataset backend
 ```
 
-The MCP never opens recipe files and never silently falls back to another source. Remote HTTPS canvas editing uses the site's relay. Queries need no paired browser; edits require its webpage to stay open.
+The MCP never opens recipe files and never silently falls back to another source. Remote HTTP(S) canvas editing uses the site's relay. Queries need no paired browser; edits require its webpage to stay open.
 
 Available GTNH releases and datasets come from that server's manifest. Both MCP
 and the native plugin use its advertised versions without a hardcoded 2.9 filter.
@@ -35,8 +35,9 @@ The server remains responsible for version support and compatible normalized dat
 ## Configure clients
 
 DeepSeek Harness also has a [native SDK plugin](../plugins/dsh-gtnh-planner/README.md).
-Install its single package through DSH's Plugins page to get native planning tools
-and system-prompt guidance. Its plugin detail page provides **服务器地址**,
+Install its single package through DSH's Plugins page, then fully restart the DSH
+backend or Desktop to load the updated client module. It provides native planning
+tools and system-prompt guidance. Its plugin detail page provides **服务器地址**,
 **连接模式** and **保存连接设置**. Saved changes apply immediately and require
 pairing with the new site's webpage. The equivalent MCP options remain
 `GTNH_PLANNER_URL` and `GTNH_AGENT_TRANSPORT`; restart the MCP after changing them.
@@ -65,7 +66,15 @@ Copy `skills/gtnh-production-planner` into the client's skill directory. For rep
 
 Ask the agent to call `begin_pairing`, open the returned address, then paste the code in **Settings > Agent**. Relay codes expire in ten minutes and can be approved once. Default permission covers the selected design; enable **Allow new designs in this session** when needed. Grants last at most twelve hours. Keep the page open. Disconnect or switching to an ungranted design revokes access. Pairing credentials stay in memory and are not logged.
 
-`GTNH_AGENT_TRANSPORT=auto` uses the legacy local bridge for HTTP loopback and the website relay for HTTPS. `relay` forces the relay for local testing; `local` requires loopback. Public addresses require HTTPS. In relay mode both the browser and MCP make outbound connections to the website's WSS port 443, without opening a local port. Missing relay configuration is an explicit error.
+`GTNH_AGENT_TRANSPORT=auto` uses the legacy local bridge for HTTP loopback and the website relay for other HTTP(S) origins. `relay` forces the relay for local testing; `local` requires loopback. Both browser and MCP make outbound WS(S) connections to the website without opening a local port. Missing relay configuration is an explicit error.
+
+Public HTTP is allowed with an unencrypted-traffic warning. HTTPS certificate
+verification failures are also allowed with an identity warning: only requests
+and WSS connections to the configured planner origin use this compatibility.
+Global TLS checks remain enabled, redirects are refused and delivered writes are
+never retried. `securityWarnings` appears in tool results and stderr. The browser
+must separately accept the site's certificate warning. Pairing credentials and
+edits may be exposed when using these connection modes.
 
 ## Tool behaviour
 

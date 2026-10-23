@@ -3,15 +3,20 @@ import { PlannerApi } from "@/lib/agent/data-client";
 import { createAgentConnection } from "@/lib/agent/create-connection";
 import type { ConnectionMode } from "@/lib/agent/connection";
 import { createMcpServer } from "./server";
+import { PlannerTransport } from "@/lib/agent/planner-transport";
 
 async function main() {
-  const api = new PlannerApi(process.env.GTNH_PLANNER_URL ?? "http://localhost:3000");
+  const transport = new PlannerTransport(
+    process.env.GTNH_PLANNER_URL ?? "http://localhost:3000",
+    (warning) => console.error(`[gtnh] ${warning.message}`),
+  );
+  const api = new PlannerApi(transport.origin, transport.request, () => transport.warnings());
   const mode = process.env.GTNH_AGENT_TRANSPORT ?? "auto";
   if (!["auto", "local", "relay"].includes(mode))
     throw new Error("GTNH_AGENT_TRANSPORT must be auto, local or relay.");
-  const bridge = createAgentConnection(api.baseUrl, mode as ConnectionMode);
+  const bridge = createAgentConnection(api.baseUrl, mode as ConnectionMode, transport);
   await bridge.start();
-  const transport = serveStdio(() => createMcpServer(api, bridge), {
+  const stdio = serveStdio(() => createMcpServer(api, bridge), {
     onerror: (error) => console.error(error.message),
   });
   let closing = false;
@@ -19,7 +24,7 @@ async function main() {
     if (closing) return;
     closing = true;
     await bridge.close();
-    await transport.close();
+    await stdio.close();
   }
   process.stdin.on("end", () => {
     void close();

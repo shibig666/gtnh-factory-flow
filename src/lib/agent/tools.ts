@@ -38,7 +38,19 @@ export function createPlannerTools(
     readOnly: boolean,
     run: (args: z.infer<S>) => Promise<unknown> | unknown,
   ) {
-    tools.push({ name, description, schema, readOnly, run: (raw) => run(schema.parse(raw)) });
+    tools.push({
+      name,
+      description,
+      schema,
+      readOnly,
+      run: async (raw) => {
+        const result = await run(schema.parse(raw));
+        const warnings = api.securityWarnings();
+        return warnings.length && result && typeof result === "object" && !Array.isArray(result)
+          ? { ...result, securityWarnings: warnings }
+          : result;
+      },
+    });
   }
   async function pinned(versionId?: string) {
     if (versionId) return api.identity(versionId);

@@ -159,9 +159,7 @@ export function ModSettings({ onClose }: { onClose: () => void }) {
       ],
     },
     { name: "Minimap", rows: [], body: <MinimapSettingsRows className="ms-minimap" /> },
-    ...(typeof window !== "undefined" && ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)
-      ? [{ name: "Agent", rows: [], body: <AgentConnectionPanel /> }]
-      : []),
+    { name: "Agent", rows: [], body: <AgentConnectionPanel /> },
     {
       name: "Sound",
       rows: [

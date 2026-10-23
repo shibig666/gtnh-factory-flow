@@ -44,6 +44,8 @@
 # misc
 .DS_Store
 *.pem
+!src/lib/agent/__fixtures__/tls-cert.pem
+!src/lib/agent/__fixtures__/tls-key.pem
 
 # debug
 *.log

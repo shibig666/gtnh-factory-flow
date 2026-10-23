@@ -81,10 +81,11 @@ export class AgentRelayService {
       url.password ||
       url.search ||
       url.hash ||
-      (url.protocol !== "https:" &&
-        !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))
+      !["http:", "https:"].includes(url.protocol)
     )
-      throw new Error("Agent relay origin must use HTTPS, or HTTP on loopback for development.");
+      throw new Error(
+        "Agent relay origin must be an HTTP(S) origin without a path or credentials.",
+      );
     this.origin = url.origin;
     if (
       !Number.isInteger(options.maxRooms ?? 100) ||

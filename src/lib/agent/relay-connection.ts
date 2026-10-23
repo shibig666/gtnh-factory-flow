@@ -3,6 +3,7 @@ import { WebSocket } from "ws";
 import { z } from "zod";
 import { AgentError, type BrowserCommand } from "./protocol";
 import type { AgentConnection } from "./connection";
+import { PlannerTransport, isCertificateError } from "./planner-transport";
 import {
   RELAY_PROTOCOL,
   browserStatusSchema,
@@ -27,14 +28,10 @@ export class RelayConnection implements AgentConnection {
     { resolve: (result: unknown) => void; reject: (error: Error) => void; cleanup: () => void }
   >();
 
-  constructor(readonly plannerUrl: string) {
-    const url = new URL(plannerUrl);
-    if (
-      url.protocol !== "https:" &&
-      !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
-    )
-      throw new Error("Remote agent connections require HTTPS.");
-  }
+  constructor(
+    readonly plannerUrl: string,
+    private readonly transport = new PlannerTransport(plannerUrl),
+  ) {}
 
   async start() {
     /* Connections are initiated on pairing; public recipe queries need no grant. */
@@ -47,6 +44,7 @@ export class RelayConnection implements AgentConnection {
       transport: "relay",
       browser: this.browser,
       grant: this.grant,
+      ...(this.transport.warnings().length ? { securityWarnings: this.transport.warnings() } : {}),
     };
   }
 
@@ -57,13 +55,16 @@ export class RelayConnection implements AgentConnection {
     this.pairingInProgress = true;
     try {
       await this.reset();
-      const response = await fetch(new URL("/api/agent/pairings", this.plannerUrl), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ v: RELAY_PROTOCOL }),
-        signal: AbortSignal.timeout(15_000),
-        redirect: "error",
-      });
+      const response = await this.transport.request(
+        new URL("/api/agent/pairings", this.plannerUrl),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ v: RELAY_PROTOCOL }),
+          signal: AbortSignal.timeout(15_000),
+          redirect: "error",
+        },
+      );
       const result = await response.json();
       if (!response.ok)
         throw new AgentError(
@@ -100,6 +101,9 @@ export class RelayConnection implements AgentConnection {
         expiresAt: new Date(created.expiresAt).toISOString(),
         plannerUrl: this.plannerUrl,
         transport: "relay",
+        ...(this.transport.warnings().length
+          ? { securityWarnings: this.transport.warnings() }
+          : {}),
         instructions:
           "Open Settings > Agent on this planner. Approve the current design; enable new designs only if needed. Keep the webpage open. No local port is required.",
       };
@@ -109,9 +113,22 @@ export class RelayConnection implements AgentConnection {
   }
 
   private async connect() {
+    try {
+      await this.openSocket();
+    } catch (error) {
+      if (!this.transport.acceptCertificateError(error)) throw error;
+      // A rejected TLS handshake sent no hello or command, so it is safe to reconnect once.
+      await this.openSocket();
+    }
+  }
+
+  private async openSocket() {
     const pairing = this.pairing;
     if (!pairing || this.closed) return;
-    const ws = new WebSocket(relaySocketUrl(this.plannerUrl), { maxPayload: 4 * 1024 * 1024 });
+    const ws = new WebSocket(relaySocketUrl(this.plannerUrl), {
+      maxPayload: 4 * 1024 * 1024,
+      rejectUnauthorized: !this.transport.usesUntrustedCertificate(),
+    });
     this.socket = ws;
     await new Promise<void>((resolve, reject) => {
       let ready = false;
@@ -156,9 +173,15 @@ export class RelayConnection implements AgentConnection {
           ws.close(1008, "Invalid relay message");
         }
       });
-      ws.on("error", () => {
-        if (!ready)
-          reject(new AgentError("RELAY_UNAVAILABLE", "Could not connect to the planner relay."));
+      ws.on("error", (error) => {
+        if (!ready) {
+          clearTimeout(timeout);
+          if (isCertificateError(error)) {
+            if (this.socket === ws) this.socket = undefined;
+            reject(error);
+          } else
+            reject(new AgentError("RELAY_UNAVAILABLE", "Could not connect to the planner relay."));
+        }
       });
       ws.on("close", (code) => {
         clearTimeout(timeout);
@@ -245,13 +268,18 @@ export class RelayConnection implements AgentConnection {
     this.grant = undefined;
     this.failPending();
     if (previous)
-      await fetch(new URL("/api/agent/revoke", this.plannerUrl), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${previous.token}` },
-        body: JSON.stringify({ pairingId: previous.id }),
-        signal: AbortSignal.timeout(3000),
-        redirect: "error",
-      }).catch(() => undefined);
+      await this.transport
+        .request(new URL("/api/agent/revoke", this.plannerUrl), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${previous.token}`,
+          },
+          body: JSON.stringify({ pairingId: previous.id }),
+          signal: AbortSignal.timeout(3000),
+          redirect: "error",
+        })
+        .catch(() => undefined);
   }
 
   async close() {

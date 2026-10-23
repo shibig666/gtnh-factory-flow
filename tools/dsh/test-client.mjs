@@ -131,10 +131,20 @@ try {
   await url.waitFor();
   assert.equal(await url.inputValue(), "http://localhost:3000");
   assert.equal(await save.isDisabled(), true);
+  await url.fill("http://planner.example.com");
+  await mode.selectOption("relay");
+  await page.getByRole("alert").filter({ hasText: "HTTP 不加密" }).waitFor();
+  await save.click();
+  await page.getByText("已保存。旧连接已关闭", { exact: false }).waitFor();
+  assert.equal(
+    (await page.evaluate(() => window.__snapshot())).value.plannerUrl,
+    "http://planner.example.com",
+  );
+  const acceptedWrites = await page.evaluate(() => window.__writes);
   await url.fill("https://planner.example.com/path");
   await save.click();
   await page.getByRole("alert").waitFor();
-  assert.equal(await page.evaluate(() => window.__writes ?? 0), 0);
+  assert.equal(await page.evaluate(() => window.__writes), acceptedWrites);
   await url.fill("https://planner.example.com/");
   await mode.selectOption("relay");
   await save.click();
@@ -172,6 +182,7 @@ try {
     originalFileAction: true,
     packageDetailSettings: true,
     validatedAtomicSave: true,
+    httpAcceptedWithWarning: true,
     refusedSavePreservesDraft: true,
     failedSavePreservesDraft: true,
     pageErrors: errors,

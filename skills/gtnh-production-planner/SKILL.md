@@ -5,7 +5,7 @@ description: Use the GTNH Factory Flow MCP to find GTNH items and recipes, build
 
 Use the configured planner's HTTP API as the recipe authority. Its server chooses local datasets or its remote dataset backend. Never read dataset files yourself, invent recipe IDs, edit recipe bodies or scrape the rendered recipe UI.
 
-Pair only the configured planner origin. Remote HTTPS uses its outbound website relay and requires no client listening port. Keep the webpage open. In relay mode only granted designs are accessible; create designs only when grant.allowCreate permits it. Switching to an ungranted design revokes pairing. Legacy local pairing authorizes the browser session, including new designs. Cloud/live designs are unsupported. Reconnect never replays writes: after OUTCOME_UNKNOWN read the actual design before another edit.
+Pair only the configured planner origin. Remote HTTP(S) uses its outbound website relay and requires no client listening port. HTTP and untrusted HTTPS certificates are allowed with securityWarnings: HTTP traffic is not encrypted; an untrusted certificate does not verify the server's identity. Relay credentials and edits may be exposed. Surface these warnings to the user. Certificate compatibility applies only to this planner; the browser must accept its own certificate warning. Keep the webpage open. In relay mode only granted designs are accessible; create designs only when grant.allowCreate permits it. Switching to an ungranted design revokes pairing. Legacy local pairing authorizes the browser session, including new designs. Cloud/live designs are unsupported. Reconnect never replays writes: after OUTCOME_UNKNOWN read the actual design before another edit.
 
 ## Establish the task
 

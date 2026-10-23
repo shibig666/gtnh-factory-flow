@@ -20,17 +20,19 @@ npm run build:dsh
 In the DSH **Plugins** page, install this package by absolute path:
 
 ```text
-E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.2.tgz
+E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.4.0.tgz
 ```
 
 The equivalent for the Web CLI is:
 
 ```powershell
-dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.2.tgz
+dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.4.0.tgz
 ```
 
 Desktop users install through Desktop's Plugins page; the npm CLI cannot manage
-the Desktop profile. Restart DSH if requested and start a new conversation. The
+the Desktop profile. After updating, fully restart the DSH backend or Desktop,
+reload the page and start a new conversation. Refreshing only the browser does
+not rebuild the Host's client-module inventory. The
 package is self-contained except for the DSH SDK packages provided by the host:
 Cordis, Schemastery, Tools, System Prompt and Attachments. The source checkout and its
 node_modules are not needed after installation.
@@ -43,7 +45,7 @@ tools; it is not needed by this plugin.
 
 ## Use
 
-Use your deployed planner's HTTPS address, or start the local **planner webpage**
+Use your deployed planner's HTTP or HTTPS address, or start the local **planner webpage**
 at `http://localhost:3000`. Local development can use the online dataset backend:
 
 ```powershell
@@ -112,10 +114,16 @@ Advanced installations can also override the bundle's existing row in the profil
 Use an origin without a path or credentials and open that exact address in the
 browser. After saving, call `gtnh_get_status` to check the effective address,
 then `gtnh_begin_pairing` to pair with that site's webpage.
-`auto` keeps HTTP loopback compatible with the local bridge; HTTPS uses the
+`auto` keeps HTTP loopback compatible with the local bridge; remote HTTP(S) uses the
 website's outbound relay. `relay` forces relay mode for local development, and
-`local` is restricted to loopback. Public sites require HTTPS and a configured
-relay. Users need no listening port, including behind symmetric NAT.
+`local` is restricted to loopback. Public sites need a configured relay. HTTP is
+allowed with an unencrypted-traffic warning. Untrusted HTTPS certificates are also
+allowed: the client first verifies the certificate, then uses compatibility only
+for the configured origin if certificate verification fails. `securityWarnings`
+appears in tool results and native logs. No global TLS setting is changed, and
+credentials never follow redirects to another origin. The browser must accept its
+own certificate warning before opening that website. Users need no listening port,
+including behind symmetric NAT.
 HTTP errors never silently switch data sources. Server operators should follow
 the [relay deployment guide](https://github.com/shibig666/gtnh-factory-flow/blob/main/docs/agent-relay.md).
 
@@ -169,7 +177,8 @@ gallery in headless Chromium, and exercises the package-detail configuration for
 save and error handling against a form-contract fixture. It does not control the user's Desktop application.
 The app test starts the complete DSH Web profile from the isolated installation,
 opens the real Plugins detail page, saves a server address through the Host settings
-API, reloads and verifies persistence. It also rejects browser initialization errors
+API, reloads, verifies persistence and creates a real conversation to exercise
+Agent presets. It also rejects browser initialization errors
 such as duplicate SDK slot declarations. Its report is `scratch/dsh-app/report.json`.
 
 The standalone MCP and skill elsewhere in the source repository remain available
