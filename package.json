@@ -20,6 +20,10 @@
     "test:dsh:browser": "node --import tsx tools/dsh/test-browser.mjs",
     "mcp": "tsx src/mcp/main.ts",
     "start": "next start",
+    "serve": "node dist-server/server.mjs",
+    "build:server": "esbuild tools/production/server.mjs --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-server/server.mjs --log-level=warning",
+    "build:production": "npm run build && npm run build:server",
+    "test:production:browser": "node --import tsx tools/production/test-browser.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -37,6 +41,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
+    "@next/env": "16.2.6",
     "@noble/hashes": "^2.4.0",
     "@supabase/supabase-js": "^2.110.8",
     "@xyflow/react": "^12.10.2",
@@ -48,6 +53,7 @@
     "pngjs": "^7.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "selfsigned": "^5.5.0",
     "ws": "^8.21.3",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"

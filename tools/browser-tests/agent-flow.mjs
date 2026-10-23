@@ -364,6 +364,10 @@ try {
   await pair(page);
   if (publicHttp) {
     assert.equal(await page.evaluate(() => window.isSecureContext), false);
+    assert.deepEqual(await page.evaluate(() => [typeof crypto.randomUUID, typeof crypto.subtle]), [
+      "undefined",
+      "undefined",
+    ]);
     assert.equal((await call("get_status")).securityWarnings[0].code, "HTTP_UNENCRYPTED");
     report.publicHttpWithWarning = true;
   }

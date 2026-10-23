@@ -1,5 +1,7 @@
 "use client";
 
+import { randomUUID } from "@/lib/random-id";
+
 import {
   hasStorageTarget,
   isInputRate,
@@ -6790,11 +6792,7 @@ function snapAnnotationToGrid(
 }
 
 function createId(prefix: string): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${randomUUID()}`;
 }
 
 // A big board's solve finishes off the main thread; the finished books land

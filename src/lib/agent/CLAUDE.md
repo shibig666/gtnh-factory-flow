@@ -59,3 +59,6 @@ and checks editing and image export in a browser without a secure context.
 
 Deployment templates and current scope: `docs/agent-relay.md`. A build or push
 does not authorize deployment.
+The single-port LAN production runner is `tools/production/`: it shares the same
+relay service and checks actual Next pairing routes in `test:production:browser`.
+Keep the configured public origin separate from a wildcard listening address.

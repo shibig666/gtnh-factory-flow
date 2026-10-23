@@ -2,6 +2,10 @@
 
 The MCP server exposes recipe discovery and a paired browser canvas, locally or on a deployed HTTP(S) site. The companion skill guides target-driven recipe selection, graph construction and solver validation. It does not run another LLM or need a separate model API key. For public hosting, follow the [relay deployment guide](agent-relay.md).
 
+For LAN hosting on Linux or Windows, the [production runner](production-server.md)
+starts the built webpage and relay on one HTTP or self-signed HTTPS port. Existing
+MCP and native DSH clients use its printed URL without another adapter.
+
 ## Start
 
 Use Node.js 20.19 or newer (CI uses 24). In the repository:

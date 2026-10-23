@@ -29,6 +29,11 @@ or place a dataset and its `datasets.manifest.json` under `public/datasets/gtnh/
 (ignored by git). Community features
 need Supabase; see [docs/COMMUNITY.md](docs/COMMUNITY.md).
 
+For a built LAN server on Linux or Windows, run `npm run build:production`, then
+`npm run serve -- --host 0.0.0.0 --protocol http --port 8080`.
+The server includes the agent relay on the same port and can generate a self-signed
+HTTPS certificate. See the [production scripts and troubleshooting guide](docs/production-server.md).
+
 ## How it fits together
 
 - `tools/dataset-pipeline/`: a Forge mod runs inside a real GTNH client and exports every
@@ -44,7 +49,7 @@ Working notes for contributors and AI agents are in [AGENTS.md](AGENTS.md) and t
 ## Agent integration
 
 The MCP server lets Codex and Claude Code query recipes through the planner's HTTP
-API and build or modify a paired browser design, locally or on a deployed HTTPS site. A companion skill guides target-driven
+API and build or modify a paired browser design, locally or on a deployed HTTP(S) site. A companion skill guides target-driven
 planning and checks the actual solver result. See [setup and validation](docs/agent-integration.md).
 
 DeepSeek Harness users can install [a native DSH plugin](plugins/dsh-gtnh-planner/README.md).

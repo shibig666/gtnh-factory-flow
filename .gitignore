@@ -74,3 +74,5 @@ tools/parity/out/
 /dist-mcp/
 /dist-agent-relay/
 /dist-dsh/
+/dist-server/
+/.runtime/

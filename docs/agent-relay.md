@@ -17,6 +17,11 @@ flowchart LR
 
 ## 部署
 
+局域网 Linux / Windows 可直接使用 [生产运行脚本](production-server.md)：
+构建后运行 `npm run serve -- --host 0.0.0.0 --protocol http --port 8080`，
+网页与 relay 共用一个外部端口，也支持自动生成自签名 HTTPS 证书。
+下面是已有反向代理环境下的独立进程部署方式。
+
 这是与 Live 协作服务独立的进程。现有 Live 端口、账号权限、租约和保存协议不变。
 以下为部署模板；本次开发不会部署服务器，也不会修改线上配置。
 
