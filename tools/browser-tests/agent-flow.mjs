@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { PNG } from "pngjs";
 import { AgentRelayService } from "../../src/agent-relay/service.ts";
 import { chromium } from "playwright-core";
 import { Client } from "@modelcontextprotocol/client";
@@ -415,6 +416,40 @@ try {
   );
   await write("redo_design");
   await write("arrange_design");
+  const imageTarget = await target();
+  const imageResult = await client.callTool({
+    name: "export_design_image",
+    arguments: imageTarget,
+  });
+  assert.ok(!imageResult.isError, JSON.stringify(imageResult));
+  let imageBytes;
+  if (process.env.AGENT_TEST_DSH) {
+    const native = imageResult.structuredContent;
+    assert.ok(
+      imageResult.content.some(
+        (part) =>
+          part.type === "image" && part.attachment.attachmentId === native.image.attachmentId,
+      ),
+    );
+    imageBytes = await readFile(native.filePath);
+    assert.equal(imageBytes.length, native.bytes);
+    assert.ok((await client.ctx.attachments.readImage(native.image)).data.length);
+    report.chatImageAttachment = native.image.attachmentId;
+  } else {
+    const content = imageResult.content.find((part) => part.type === "image");
+    assert.equal(content.mimeType, "image/png");
+    imageBytes = Buffer.from(content.data, "base64");
+    assert.equal(imageResult.structuredContent.data, undefined);
+  }
+  const rendered = PNG.sync.read(imageBytes);
+  assert.ok(rendered.width > 100 && rendered.height > 100);
+  assert.equal((await target()).expectedRevision, imageTarget.expectedRevision);
+  await writeFile(path.join(output, "exported-flowchart.png"), imageBytes);
+  report.exportedImage = {
+    width: rendered.width,
+    height: rendered.height,
+    bytes: imageBytes.length,
+  };
   const exported = await call("export_design", await target());
   assert.equal(JSON.parse(exported.json).nodes.length, 2);
   const originalDesignId = exported.designId;

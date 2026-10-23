@@ -1,14 +1,15 @@
 import Schema from "@deepseek-ai/schemastery";
 import { z } from "zod";
 import { createAgentConnection } from "@/lib/agent/create-connection";
-import { CONNECTION_GUIDANCE } from "@/lib/agent/guidance";
+import { CONNECTION_GUIDANCE, IMAGE_GUIDANCE } from "@/lib/agent/guidance";
 import { PlannerApi } from "@/lib/agent/data-client";
 import { createPlannerTools } from "@/lib/agent/tools";
 import { errorResult } from "@/lib/agent/protocol";
 import instructions from "./instructions.md";
+import { isDesignImage, imageMetadata } from "@/lib/agent/image-protocol";
 
 export const name = "gtnh-planner";
-export const inject = ["tools", "systemPrompt"];
+export const inject = ["tools", "systemPrompt", "attachments"];
 
 export const Config = Schema.object({
   plannerUrl: Schema.string()
@@ -39,7 +40,14 @@ export async function apply(ctx, config) {
       ),
       output: {
         schema: {},
-        render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }],
+        render: (_args, value) =>
+          value?.kind === "gtnh-design-image"
+            ? [
+                { type: "text", text: JSON.stringify(value) },
+                { type: "image", attachment: value.image },
+                { type: "file", attachment: value.file },
+              ]
+            : [{ type: "text", text: JSON.stringify(value) }],
       },
       timeoutMs: 90_000,
       async execute(args, exec) {
@@ -62,6 +70,18 @@ export async function apply(ctx, config) {
           if (value && typeof value === "object" && value.ok === false) {
             throw new Error(JSON.stringify(value));
           }
+          if (isDesignImage(value)) {
+            const data = Buffer.from(value.data, "base64");
+            const image = await ctx.attachments.saveImage({
+              data,
+              mediaType: "image/png",
+              name: value.name,
+            });
+            exec.signal.throwIfAborted();
+            const file = await ctx.attachments.saveFile({ data, name: value.name });
+            const filePath = ctx.attachments.fileHostPath(file);
+            return { ...imageMetadata(value), image, file, ...(filePath ? { filePath } : {}) };
+          }
           // DSH requires lossless JSON; omit undefined metadata just like the website API.
           return JSON.parse(JSON.stringify(value));
         } catch (error) {
@@ -76,6 +96,6 @@ export async function apply(ctx, config) {
     name: "gtnh-planner",
     order: 70,
     interpolate: false,
-    text: `${CONNECTION_GUIDANCE}\n\n${instructions}`,
+    text: `${CONNECTION_GUIDANCE}\n\n${IMAGE_GUIDANCE}\n\n${instructions}`,
   });
 }

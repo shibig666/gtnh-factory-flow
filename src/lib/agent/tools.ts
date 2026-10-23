@@ -7,6 +7,7 @@ import {
   AgentError,
 } from "@/lib/agent/protocol";
 import type { AgentConnection } from "./connection";
+import { collectDesignImage } from "./image-transfer";
 
 const id = z.string().min(1).max(512);
 const dataset = z.object({ versionId: id, fingerprint: id }).strict();
@@ -292,6 +293,13 @@ export function createPlannerTools(
     z.object({ ...target, dataset }).strict(),
     true,
     (args) => bridge.call("export_design", args),
+  );
+  register(
+    "export_design_image",
+    "Export the entire active flowchart as a PNG, including offscreen cards and wires. Call arrange_design first, then use its fresh revision. Returns an inline image for this chat; the original full-frame PNG is preserved. No browser download or public upload is needed.",
+    z.object({ ...target, dataset }).strict(),
+    true,
+    (args) => collectDesignImage(bridge, args),
   );
   return tools;
 }

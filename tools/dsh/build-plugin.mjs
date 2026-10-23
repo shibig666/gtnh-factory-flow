@@ -11,6 +11,7 @@ await mkdir(output, { recursive: true });
 await mkdir(path.join(root, "scratch/dsh-build"), { recursive: true });
 const staging = await mkdtemp(path.join(root, "scratch/dsh-build/package-"));
 await mkdir(path.join(staging, "lib"), { recursive: true });
+await copyFile(path.join(source, "client.mjs"), path.join(staging, "lib/client.js"));
 
 for (const file of ["package.json", "cordis.patch.yml", "README.md"]) {
   await copyFile(path.join(source, file), path.join(staging, file));

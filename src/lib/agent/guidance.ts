@@ -1,3 +1,5 @@
 /** Shared connection rules for the native plugin, MCP instructions and companion skill. */
+export const IMAGE_GUIDANCE =
+  "After completing edits, call arrange_design, carry forward its returned revision, then call export_design_image to show the entire flowchart in the current chat. The image tool returns native image content, not base64 text to paste. DSH shows an inline gallery and an Open full PNG action; MCP clients receive a standard PNG image block. Image export is read-only and does not replace solver verification. If the design changes during capture, reread and export again.";
 export const CONNECTION_GUIDANCE =
   "Pair only the configured planner origin. Remote HTTPS uses its outbound website relay and requires no client listening port. Keep the webpage open. In relay mode only granted designs are accessible; create designs only when grant.allowCreate permits it. Switching to an ungranted design revokes pairing. Legacy local pairing authorizes the browser session, including new designs. Cloud/live designs are unsupported. Reconnect never replays writes: after OUTCOME_UNKNOWN read the actual design before another edit.";

@@ -1,7 +1,7 @@
 # GTNH Planner: native DeepSeek Harness plugin
 
 A Cordis/DSH SDK plugin for finding GTNH 2.9 recipes and creating, editing and
-verifying production chains on a paired planner webpage. It registers 18 native
+verifying production chains on a paired planner webpage. It registers 19 native
 `gtnh_*` tools with `ctx.tools` and planning guidance with `ctx.systemPrompt`.
 There is no MCP server, subprocess, skill provider or `SKILL.md` in this package.
 It does not require a model key beyond the model already configured in DSH.
@@ -17,22 +17,22 @@ npm run build:dsh
 In the DSH **Plugins** page, install this package by absolute path:
 
 ```text
-E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.2.0.tgz
+E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.0.tgz
 ```
 
 The equivalent for the Web CLI is:
 
 ```powershell
-dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.2.0.tgz
+dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.0.tgz
 ```
 
 Desktop users install through Desktop's Plugins page; the npm CLI cannot manage
 the Desktop profile. Restart DSH if requested and start a new conversation. The
 package is self-contained except for the DSH SDK packages provided by the host:
-Cordis, Schemastery, Tools and System Prompt. The source checkout and its
+Cordis, Schemastery, Tools, System Prompt and Attachments. The source checkout and its
 node_modules are not needed after installation.
 
-The declared target is DSH 0.2.x starting at 0.2.0-rc.2; test reports record the
+The declared target is DSH 0.2.x starting at 0.2.1-rc.2, including Desktop; test reports record the
 exact runtime actually verified. Do not use a DSH compatibility exemption for a
 runtime outside the declared range. Previously copied skills and MCP settings are
 left untouched. Disable the old GTNH MCP configuration if you want only the native
@@ -60,10 +60,33 @@ before connecting. Default relay permission covers only the selected design. The
 > 新建设计“青铜测试”。最高 LV，每分钟生产 8 个 Bronze Ingot。
 > 只允许 Copper Dust、Tin Dust 和电力外供，通过搅拌机制作合金粉再加工成锭。
 > 实际搭建、配平并排列产线，使用 gtnh_evaluate_design 验证。
+> 完成后整理流程图，导出完整图片并显示在当前聊天中。
 
 Querying recipes does not need a paired browser. Canvas edits do. The plugin never
 downloads a dataset or launches the planner webpage. The planner server remains
 responsible for choosing local recipe files or its remote dataset backend.
+
+## Arrange and export to this chat
+
+`gtnh_arrange_design` arranges the current ungrouped flowchart as one undoable edit.
+Carry forward its returned revision, then call `gtnh_export_design_image` with the
+same session, design and dataset. The tool exports the entire board, including
+offscreen cards, wires and annotations, using the website's ordinary PNG exporter.
+Grouped/annotated layout still uses the webpage's arrange control; image export
+includes those designs without rearranging them.
+
+The plugin saves a durable image preview through DSH Attachments. Its bundled
+chat view shows the official image gallery directly under the tool result and
+an **Open full PNG** button for the exact original file. DSH may normalize the
+preview; the separately saved PNG preserves every original byte. No public upload,
+clipboard permission or local browser download is required. The AI should not
+paste base64 into its answer. The view requires the standard Desktop/Web Tool and
+Attachment UI plugins, already included in those profiles.
+
+PNG transfer uses bounded chunks and SHA-256 verification. Complete PNGs up to
+16 MiB and 8192 pixels per side are supported; the existing board exporter may
+scale large boards to its canvas limit while preserving the whole frame. Changes
+during capture or transfer cause a revision error, rather than returning a stale image.
 
 ## Configuration
 
@@ -109,22 +132,26 @@ supported by this bridge; an online website still saves these designs in browser
 
 ```powershell
 npm run build:dsh
-$env:GTNH_DSH_MODULE_ROOT = 'C:/Users/shi/.dsh/profiles/node_modules'
+npm install --prefix scratch/dsh-sdk --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.2
+$env:GTNH_DSH_MODULE_ROOT = (Resolve-Path 'scratch/dsh-sdk/node_modules').Path
 npm run test:dsh
 npm run test:dsh:install
 npm run build
 npm run test:dsh:browser
 npm run test:dsh:relay:browser
+npm run test:dsh:client
 ```
 
 Tests extract the actual tarball to an isolated scratch directory and use the
-host's real Cordis, Tools and System Prompt services, without loading an MCP or
+host's real Cordis, Tools, System Prompt and Attachment services, without loading an MCP or
 skill service. They check API reads, native tool schemas, guards, cancellation,
 unload and re-enable. Browser acceptance exercises pairing, real canvas editing,
 solver evaluation, atomic rejection, undo/redo and persistence through native DSH
 tool dispatch. Recipes in these tests are artificial; no LLM is invoked. Reports
-are `scratch/dsh-tests/report.json`, `scratch/dsh-browser/report.json` and
-`scratch/dsh-relay-browser/report.json`.
+are `scratch/dsh-tests/report.json`, `scratch/dsh-browser/report.json`,
+`scratch/dsh-relay-browser/report.json` and `scratch/dsh-client/report.json`.
+The client test mounts the packaged tool view with the target SDK's official
+gallery in headless Chromium; it does not control the user's Desktop application.
 
 The standalone MCP and skill elsewhere in the source repository remain available
 for other clients. Both adapters reuse the same transport-neutral planner actions,

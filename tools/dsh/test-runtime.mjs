@@ -49,16 +49,18 @@ export async function createDshClient(
   const installation = await installTestPackage();
   let ctx;
   try {
-    const [{ Context }, prompt, tools, plugin] = await Promise.all([
+    const [{ Context }, prompt, tools, attachments, plugin] = await Promise.all([
       loadHost("@deepseek-ai/cordis"),
       loadHost("@deepseek-ai/dsh-system-prompt"),
       loadHost("@deepseek-ai/dsh-tools"),
+      loadHost("@deepseek-ai/dsh-attachment-local"),
       import(pathToFileURL(path.join(installation.packageRoot, "lib/index.mjs")).href),
     ]);
     const runtime = JSON.parse(
       await readFile(hostRequire.resolve("@deepseek-ai/dsh/package.json"), "utf8"),
     );
     ctx = new Context();
+    ctx.plugin(attachments.default, { dshHome: path.join(installation.packageRoot, "test-home") });
     ctx.plugin(prompt.default, {});
     ctx.plugin(tools.default, { mode: "native" });
     const fiber = ctx.plugin(plugin, { plannerUrl, connectionMode });

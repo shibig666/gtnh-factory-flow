@@ -15,6 +15,7 @@
     "build:dsh": "node tools/dsh/build-plugin.mjs",
     "test:dsh": "node tools/dsh/test-plugin.mjs",
     "test:dsh:install": "node tools/dsh/test-install.mjs",
+    "test:dsh:client": "node tools/dsh/test-client.mjs",
     "test:dsh:browser": "node --import tsx tools/dsh/test-browser.mjs",
     "mcp": "tsx src/mcp/main.ts",
     "start": "next start",

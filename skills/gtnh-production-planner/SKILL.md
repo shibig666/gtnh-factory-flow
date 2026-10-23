@@ -31,11 +31,13 @@ Pair only the configured planner origin. Remote HTTPS uses its outbound website 
 
 ## Verify and deliver
 
+After completing edits, call arrange_design, carry forward its returned revision, then call export_design_image to show the entire flowchart in the current chat. The image tool returns native image content, not base64 text to paste. DSH shows an inline gallery and an Open full PNG action; MCP clients receive a standard PNG image block. Image export is read-only and does not replace solver verification. If the design changes during capture, reread and export again.
+
 - Call `evaluate_design` with the full task constraints: targets, maximum tier, allowed inputs and optional supply caps, allowed outputs, and optional power budget. The tool waits for the requested revision's actual solver result. Never interpret tool transport success or solver feasibility alone as a completed chain.
 - Inspect unmet targets, forbidden terminal or forced imports, forced outputs, buffer accumulation, unanchored parts, machine gates and loop notes. Repair the graph and evaluate again. Do not hide an intermediate deficit by expanding the allowed-input list without the user's instruction.
 - Report setup tools, catalysts and initial charges separately. Probabilistic rates are expected values, not guaranteed tick output. Theoretical machine counts and their ceilings are different figures; a ceiling is a construction reference, not a proof of a globally optimized integer factory.
 - On `REVISION_CONFLICT`, `DESIGN_CHANGED`, `SESSION_CHANGED` or `DATASET_CHANGED`, reread the current state and reconcile. Do not blindly retry. After `OUTCOME_UNKNOWN`, inspect the current design first: the previous operation may already have applied. Reusing a request ID is only valid for the exact same command in the same browser session.
 - Stop with a concrete incomplete report if no eligible recipe exists, data is missing, a loop cannot be resolved, the solver fails or progress stalls. Keep useful partial work and identify the remaining decision.
-- When complete, arrange the board, evaluate again and export if requested. Grouped or annotated designs use the webpage's arrange control. Summarize achieved rates, machine counts, external materials, electricity, byproducts and remaining assumptions in the user's language.
+- When complete, arrange the board, evaluate again and call `export_design_image` to show the complete PNG in this chat. Export plan JSON/codes if requested. Grouped or annotated designs use the webpage's arrange control. Summarize achieved rates, machine counts, external materials, electricity, byproducts and remaining assumptions in the user's language.
 
 The source repository's `docs/agent-integration.md` describes installation and reproducible acceptance checks. It is not required during ordinary planning.

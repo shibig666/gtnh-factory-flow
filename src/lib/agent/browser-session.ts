@@ -23,6 +23,12 @@ import {
 import { PlannerApi, datasetIdentity } from "./data-client";
 import { applyAgentActions, designView, evaluateDesign, machineOptions } from "./editor";
 import {
+  captureAgentImage,
+  agentImageChunk,
+  releaseAgentImage,
+  clearAgentImages,
+} from "./browser-image";
+import {
   RELAY_PAIRING_PREFIX,
   RELAY_PROTOCOL,
   relayCodeSchema,
@@ -112,6 +118,7 @@ function publishStatus() {
 }
 
 export function disconnectAgent() {
+  clearAgentImages();
   connectEpoch++;
   clearTimeout(reconnectTimer);
   const previousScope = activeScope;
@@ -335,7 +342,8 @@ function openSocket(
             } catch (error) {
               result = { ok: false, error: errorResult(error), status: status() };
             }
-            receipts.set(receiptKey, { serialized, result });
+            if (command.method !== "get_design_image_chunk")
+              receipts.set(receiptKey, { serialized, result });
             if (receipts.size > 1000) receipts.delete(receipts.keys().next().value!);
           }
           if (socket === ws && ws.readyState === WebSocket.OPEN) {
@@ -515,7 +523,8 @@ export async function executeBrowserCommand(
   if (
     MUTATIONS.has(command.method) ||
     command.method === "evaluate_design" ||
-    command.method === "export_design"
+    command.method === "export_design" ||
+    command.method === "export_design_image"
   )
     await checkDataset(api, args);
   checkConnected();
@@ -559,6 +568,34 @@ export async function executeBrowserCommand(
   }
   checkTarget(args, MUTATIONS.has(command.method));
   const factory = useFactoryStore.getState();
+  if (command.method === "export_design_image") {
+    const capturedRevision = revision;
+    await waitForBooks(capturedRevision);
+    checkConnected();
+    checkTarget(args, false);
+    if (!factory.project.nodes.length && !factory.project.storages?.length)
+      throw new AgentError("EMPTY_DESIGN", "Add a production chain before exporting its image.");
+    return captureAgentImage(
+      { designId: String(args.designId), revision: capturedRevision },
+      factory.project.name,
+      () => {
+        checkConnected();
+        checkTarget(args, false);
+      },
+    );
+  }
+  if (command.method === "get_design_image_chunk") {
+    const value = await agentImageChunk(
+      z.string().uuid().parse(args.artifactId),
+      z.number().int().nonnegative().parse(args.offset),
+      { designId: String(args.designId), revision },
+    );
+    checkConnected();
+    checkTarget(args, false);
+    return value;
+  }
+  if (command.method === "release_design_image")
+    return releaseAgentImage(z.string().uuid().parse(args.artifactId));
   if (command.method === "get_design")
     return {
       ...status(),

@@ -11,6 +11,7 @@ These rules cover `src/lib/agent`, `src/agent-relay`, `src/mcp`,
 - A workflow change updates the native prompt and companion skill together.
   `CONNECTION_GUIDANCE` is shared by both runtime adapters and pinned against the
   skill. Update the plugin README, MCP guide and relay guide when setup changes.
+  `IMAGE_GUIDANCE` pins the arrange/export workflow against the skill as well.
 - Relay clients only dial the configured website. Public origins require HTTPS;
   HTTP loopback supports explicit relay testing and the legacy local bridge.
   Recipe authority remains the configured site's API, never direct dataset files.
@@ -26,6 +27,10 @@ These rules cover `src/lib/agent`, `src/agent-relay`, `src/mcp`,
 - Bound public-service state, command queues, frames and receipt caches. Do not
   log tokens, pairing request bodies or WebSocket frames. No new public client
   listening ports.
+- `export_design_image` reuses the full-board exporter. Chunk bytes below frame
+  limits, validate the PNG hash and dimensions, and release temporary captures.
+  Never put base64 in model-facing text. MCP emits image content; DSH commits
+  image/file attachments and renders its keyed chat view through the host gallery.
 
 Verification: `npm run typecheck`, `npm test`, `npm run build:mcp`,
 `npm run build:dsh`, `npm run build:agent-relay`, `npm run build`.
@@ -34,6 +39,8 @@ Run both `test:agent:browser` and `test:dsh:browser` for local compatibility, an
 The native SDK and isolated installer checks are `test:dsh` and
 `test:dsh:install`. Browser fixtures are artificial and do not prove a gameplay
 recipe or an LLM's autonomous planning quality. Keep captures under `scratch/`.
+For DSH image UI changes, run `test:dsh:client` against the target SDK. Its gallery
+test uses the official attachment UI; it does not control the user's Desktop app.
 
 Deployment templates and current scope: `docs/agent-relay.md`. A build or push
 does not authorize deployment.

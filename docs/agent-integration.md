@@ -63,7 +63,7 @@ Ask the agent to call `begin_pairing`, open the returned address, then paste the
 
 - Data: `list_datasets`, `get_catalog`, `search_resources`, `search_recipes`, `get_recipes`.
 - Connection: `get_status`, `begin_pairing`.
-- Canvas: `list_designs`, `create_design`, `open_design`, `get_design`, `get_machine_options`, `apply_design_actions`, `evaluate_design`, `arrange_design`, `undo_design`, `redo_design`, `export_design`.
+- Canvas: `list_designs`, `create_design`, `open_design`, `get_design`, `get_machine_options`, `apply_design_actions`, `evaluate_design`, `arrange_design`, `undo_design`, `redo_design`, `export_design`, `export_design_image`.
 
 Searches default to 20 results and accept up to 120, returning total, offset and nextOffset. Search summaries and planning detail omit visual fields. Planning detail reports the presence of runtime calculation tables without returning the entire table. `get_recipes(detail: full)` preserves the complete schema-validated recipe body. Unknown gameplay metadata is retained. Read-only source APIs may filter virtual or iconless items; MCP does not claim to enumerate hidden exporter records.
 
@@ -80,6 +80,21 @@ Saves use the existing IndexedDB concurrency guard even while the page is unfocu
 The legacy local bridge binds 127.0.0.1 on an ephemeral port and validates Origin, Host and a random credential. The remote relay uses separate agent/browser credentials, same-origin approval and design-scoped authorization. Commands run serially in the webpage. Recent request IDs prevent duplicate execution within bounded caches. After timeout or disconnect, inspect the current state before another mutation. Transient relay reconnections never replay writes. Page refresh or relay restart requires pairing again.
 
 Arrange reads the board's published geometry and uses the existing background worker. It refuses to guess card dimensions if the board is not ready. Existing boards with groups or annotations must use the webpage arrange control. Export returns JSON, plan code and link; opening them follows the existing new-design import rule.
+
+After editing, call `arrange_design`, copy the resulting revision and call
+`export_design_image`. This read-only tool returns the entire flowchart as a
+standard MCP PNG image block, with metadata in text and structured content.
+It includes offscreen nodes and wires; it is not a screenshot of the current
+viewport. MCP clients supporting image results can show it in the current chat.
+Do not print raw base64. For DSH, the native plugin provides an official attachment
+gallery plus an action to open the exact original PNG.
+
+Image bytes travel through bounded browser chunks with SHA-256 verification,
+without public URLs or extra ports. Temporary browser captures expire after five
+minutes, are limited to two entries and are released after transfer. Images up to
+16 MiB are supported. The existing renderer caps each pixel side at 8192 and can
+scale larger boards to fit the full frame. A changed design revision aborts the
+capture or transfer; reread the design before exporting again.
 
 ## Validation
 

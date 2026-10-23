@@ -49,6 +49,8 @@ planning and checks the actual solver result. See [setup and validation](docs/ag
 
 DeepSeek Harness users can install [a native DSH plugin](plugins/dsh-gtnh-planner/README.md).
 It registers planning tools and guidance through the DSH SDK, without MCP or skill installation.
+DSH 0.2.1-rc.2 and newer 0.2.x can arrange a finished flowchart and show its complete PNG
+in the current chat. Both adapters expose `arrange_design` and `export_design_image`.
 Both integrations share the same tools and connection modes. The [public relay deployment guide](docs/agent-relay.md)
 explains design pairing over outbound WSS with no extra client port, including symmetric NAT.
 

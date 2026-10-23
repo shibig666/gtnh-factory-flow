@@ -102,7 +102,7 @@ Next.js 的开发服务器不会替代 WSS 反代；本地测试完整中转可�
 
 ## 用户安装与配对
 
-DSH：安装 `dist-dsh/dsh-gtnh-planner-0.2.0.tgz`，在已有插件配置项设置：
+DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.0.tgz`，在已有插件配置项设置：
 
 ```yaml
 - id: gtnh-planner
@@ -144,6 +144,11 @@ MCP 进程仍在用户机器上运行；它以 stdio 接入 agent，以 HTTPS/WS
 3. 点击 Connect。默认只授权当前工程，`list_designs` 不会枚举其他工程。
 4. 保持网页打开。网页负责规范配方加载、原子编辑、求解和 IndexedDB 保存；服务器只转发命令和执行回执。
 5. 点击 Disconnect 撤销两端授权。手动切换到未授权工程也会撤销连接。
+
+完成编辑后，agent 可依次调用 `arrange_design` 和 `export_design_image`，使用整理后返回的新版本号。
+DSH 显示聊天内图片画廊和完整 PNG 打开入口；MCP 返回标准图片内容块。
+整图导出包含屏幕外节点和连线，最大 16 MiB，通过内部小块传输，不扩大中转帧上限或增加用户端口。
+图片由网页实际渲染，修改工程期间导出会被版本检查拒绝。
 
 ## 授权、断线与当前边界
 

@@ -1,11 +1,12 @@
 {
   "name": "dsh-gtnh-planner",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Native GTNH 2.9 production planning tools for DeepSeek Harness.",
   "type": "module",
   "main": "lib/index.mjs",
   "exports": {
     ".": "./lib/index.mjs",
+    "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
@@ -19,15 +20,19 @@
   "license": "MIT",
   "engines": {
     "node": ">=22.19.0",
-    "dsh": ">=0.2.0-rc.2 <0.3.0"
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/schemastery": "^3.18.4",
-    "@deepseek-ai/dsh-tools": ">=0.2.0-rc.2 <0.3.0",
-    "@deepseek-ai/dsh-system-prompt": ">=0.2.0-rc.2 <0.3.0"
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-system-prompt": ">=0.2.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-attachment": ">=0.2.1-rc.2 <0.3.0"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-attachment": {
+      "optional": true
+    },
     "@deepseek-ai/cordis": {
       "optional": true
     },
@@ -47,6 +52,13 @@
     "directory": "plugins/dsh-gtnh-planner"
   },
   "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-attachment"
+      ],
+      "platform": "web"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }

@@ -41,7 +41,7 @@ try {
   report.runtime = client.runtimeVersion;
   report.package = client.installation.metadata.name;
   report.toolCount = (await client.listTools()).tools.length;
-  assert.equal(report.toolCount, 18);
+  assert.equal(report.toolCount, 19);
   for (const name of [
     "get_status",
     "list_datasets",
@@ -49,6 +49,7 @@ try {
     "evaluate_design",
     "undo_design",
     "redo_design",
+    "export_design_image",
   ]) {
     assert.ok(client.ctx.tools.get(`gtnh_${name}`));
   }
@@ -60,7 +61,10 @@ try {
   const datasets = datasetResponse.structuredContent;
   assert.equal(datasets.versions[0].id, version.id);
   assert.equal(client.ctx.skills, undefined);
-  assert.deepEqual(await readdir(path.join(client.installation.packageRoot, "lib")), ["index.mjs"]);
+  assert.deepEqual((await readdir(path.join(client.installation.packageRoot, "lib"))).sort(), [
+    "client.js",
+    "index.mjs",
+  ]);
   assert.ok(
     !Object.keys(client.installation.metadata.peerDependencies).some((name) =>
       /mcp|skill/.test(name),

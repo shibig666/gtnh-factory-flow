@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { connectionMode } from "./connection";
 import { createAgentConnection } from "./create-connection";
 import { RelayConnection } from "./relay-connection";
-import { CONNECTION_GUIDANCE } from "./guidance";
+import { CONNECTION_GUIDANCE, IMAGE_GUIDANCE } from "./guidance";
 
 describe("shared agent connection contract", () => {
   it("keeps legacy loopback compatible and sends HTTPS to the outbound relay", () => {
@@ -23,5 +23,8 @@ describe("shared agent connection contract", () => {
     );
     for (const file of ["plugins/dsh-gtnh-planner/index.mjs", "src/mcp/server.ts"])
       expect(readFileSync(file, "utf8")).toContain("CONNECTION_GUIDANCE");
+    expect(readFileSync("skills/gtnh-production-planner/SKILL.md", "utf8")).toContain(
+      IMAGE_GUIDANCE,
+    );
   });
 });

@@ -41,4 +41,7 @@ allowed-input list. Stop with an honest partial result when no legal route exist
 Arrange the board and evaluate again. Report achieved rates, external materials,
 power, theoretical machine counts and construction ceilings, byproducts and setup
 requirements. Probabilistic outputs are expected rates; do not promise a globally
-optimal factory. Export only when requested. Reply in the user's language.
+optimal factory. After editing, call gtnh_arrange_design, use its fresh revision,
+then call gtnh_export_design_image to show the whole flowchart in this chat.
+Keep the image in the native tool result; never paste its base64. Export plan JSON
+or codes only when requested. Reply in the user's language.
