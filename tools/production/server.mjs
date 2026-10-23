@@ -4,14 +4,14 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import nextEnv from "@next/env";
 import { AgentRelayService } from "../../src/agent-relay/service.ts";
 import { loadCertificate } from "./certificate.mjs";
 import { help, readConfig } from "./config.mjs";
 
 /** One external listener serves Next.js, pairing HTTP, and the relay WebSocket. */
-export async function startProduction(root, config) {
+async function startProduction(root, config) {
   process.chdir(root);
   process.env.NODE_ENV = "production";
   nextEnv.loadEnvConfig(root, false);
@@ -181,14 +181,13 @@ async function main() {
   process.once("SIGTERM", shutdown);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  main().catch((error) => {
-    const reasons = {
-      EADDRINUSE: "端口已被占用，请停止旧服务或选择另一个端口。",
-      EADDRNOTAVAIL: "监听 IP 不属于此服务器，请检查网卡或使用 0.0.0.0。",
-      EACCES: "端口或证书目录没有访问权限，请更换端口或目录。",
-    };
-    console.error(`[server] 启动失败：${reasons[error.code] ?? error.message}`);
-    process.exitCode = 1;
-  });
-}
+// This file is a CLI entry. Node resolves directory symlinks before setting import.meta.url.
+void main().catch((error) => {
+  const reasons = {
+    EADDRINUSE: "端口已被占用，请停止旧服务或选择另一个端口。",
+    EADDRNOTAVAIL: "监听 IP 不属于此服务器，请检查网卡或使用 0.0.0.0。",
+    EACCES: "端口或证书目录没有访问权限，请更换端口或目录。",
+  };
+  console.error(`[server] 启动失败：${reasons[error.code] ?? error.message}`);
+  process.exitCode = 1;
+});

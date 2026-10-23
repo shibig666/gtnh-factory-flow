@@ -65,7 +65,8 @@ for (const protocol of ["http", "https"]) {
       cwd: root,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, GTNH_PREWARM_ON_STARTUP: "0" },
+      // Browser fixtures supply recipes; ignore an unbuilt backend from the developer's env file.
+      env: { ...process.env, GTNH_PREWARM_ON_STARTUP: "0", GTNH_DATASET_BACKEND_URL: "" },
     },
   );
   let log = "";
@@ -193,7 +194,7 @@ try {
       cwd: root,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, GTNH_PREWARM_ON_STARTUP: "0" },
+      env: { ...process.env, GTNH_PREWARM_ON_STARTUP: "0", GTNH_DATASET_BACKEND_URL: "" },
     },
   );
   let failureLog = "";
