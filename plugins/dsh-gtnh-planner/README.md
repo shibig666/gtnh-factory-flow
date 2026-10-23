@@ -1,10 +1,13 @@
 # GTNH Planner: native DeepSeek Harness plugin
 
-A Cordis/DSH SDK plugin for finding GTNH 2.9 recipes and creating, editing and
+A Cordis/DSH SDK plugin for finding GTNH recipes and creating, editing and
 verifying production chains on a paired planner webpage. It registers 19 native
 `gtnh_*` tools with `ctx.tools` and planning guidance with `ctx.systemPrompt`.
 There is no MCP server, subprocess, skill provider or `SKILL.md` in this package.
 It does not require a model key beyond the model already configured in DSH.
+The connected planner's manifest determines available GTNH versions and datasets.
+The plugin does not restrict them to a particular GTNH release; the server must
+provide the planner API and normalized recipe schema expected by these tools.
 
 ## Install
 
@@ -17,13 +20,13 @@ npm run build:dsh
 In the DSH **Plugins** page, install this package by absolute path:
 
 ```text
-E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.0.tgz
+E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.2.tgz
 ```
 
 The equivalent for the Web CLI is:
 
 ```powershell
-dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.0.tgz
+dsh plugin --profile web add E:/source/gtnh-factory-flow/dist-dsh/dsh-gtnh-planner-0.3.2.tgz
 ```
 
 Desktop users install through Desktop's Plugins page; the npm CLI cannot manage
@@ -48,7 +51,8 @@ $env:GTNH_DATASET_BACKEND_URL = 'https://gtnhplanner.com'
 npm run dev
 ```
 
-Ask DSH:
+In **Plugins > dsh-gtnh-planner > 服务器连接**, enter the planner's address,
+leave **连接模式** on **自动**, and click **保存连接设置**. Then ask DSH:
 
 > 使用 GTNH 原生工具，调用 gtnh_get_status 和 gtnh_list_datasets。
 > 然后调用 gtnh_begin_pairing，告诉我网页地址和配对码。
@@ -90,8 +94,13 @@ during capture or transfer cause a revision error, rather than returning a stale
 
 ## Configuration
 
-The default planner address requires no configuration. An advanced installation
-can override the bundle's existing row in its profile patch:
+The plugin detail page includes **服务器地址**, **连接模式** and **保存连接设置**.
+Settings persist in the active DSH profile and apply immediately without restarting
+DSH. Changing either setting closes the previous connection, cancels outstanding
+operations and requires pairing again. Inspect any interrupted edits before retrying.
+The default address is `http://localhost:3000`.
+
+Advanced installations can also override the bundle's existing row in the profile patch:
 
 ```yaml
 - id: gtnh-planner
@@ -101,7 +110,8 @@ can override the bundle's existing row in its profile patch:
 ```
 
 Use an origin without a path or credentials and open that exact address in the
-browser. Reload the plugin after changing configuration and pair again.
+browser. After saving, call `gtnh_get_status` to check the effective address,
+then `gtnh_begin_pairing` to pair with that site's webpage.
 `auto` keeps HTTP loopback compatible with the local bridge; HTTPS uses the
 website's outbound relay. `relay` forces relay mode for local development, and
 `local` is restricted to loopback. Public sites require HTTPS and a configured
@@ -136,6 +146,7 @@ npm install --prefix scratch/dsh-sdk --ignore-scripts --no-audit --no-fund @deep
 $env:GTNH_DSH_MODULE_ROOT = (Resolve-Path 'scratch/dsh-sdk/node_modules').Path
 npm run test:dsh
 npm run test:dsh:install
+npm run test:dsh:app
 npm run build
 npm run test:dsh:browser
 npm run test:dsh:relay:browser
@@ -145,13 +156,21 @@ npm run test:dsh:client
 Tests extract the actual tarball to an isolated scratch directory and use the
 host's real Cordis, Tools, System Prompt and Attachment services, without loading an MCP or
 skill service. They check API reads, native tool schemas, guards, cancellation,
-unload and re-enable. Browser acceptance exercises pairing, real canvas editing,
+unload and re-enable. The settings test uses the actual ConfigEditor, Settings
+and Loader to verify persisted changes, live server switching, closure of the old
+bridge, revision conflicts and refusal of invalid addresses before they reach disk.
+Browser acceptance exercises pairing, real canvas editing,
 solver evaluation, atomic rejection, undo/redo and persistence through native DSH
 tool dispatch. Recipes in these tests are artificial; no LLM is invoked. Reports
 are `scratch/dsh-tests/report.json`, `scratch/dsh-browser/report.json`,
 `scratch/dsh-relay-browser/report.json` and `scratch/dsh-client/report.json`.
 The client test mounts the packaged tool view with the target SDK's official
-gallery in headless Chromium; it does not control the user's Desktop application.
+gallery in headless Chromium, and exercises the package-detail configuration form's
+save and error handling against a form-contract fixture. It does not control the user's Desktop application.
+The app test starts the complete DSH Web profile from the isolated installation,
+opens the real Plugins detail page, saves a server address through the Host settings
+API, reloads and verifies persistence. It also rejects browser initialization errors
+such as duplicate SDK slot declarations. Its report is `scratch/dsh-app/report.json`.
 
 The standalone MCP and skill elsewhere in the source repository remain available
 for other clients. Both adapters reuse the same transport-neutral planner actions,

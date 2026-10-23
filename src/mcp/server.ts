@@ -4,7 +4,11 @@ import type { PlannerApi } from "@/lib/agent/data-client";
 import { errorResult } from "@/lib/agent/protocol";
 import { createPlannerTools } from "@/lib/agent/tools";
 import type { AgentConnection } from "@/lib/agent/connection";
-import { CONNECTION_GUIDANCE, IMAGE_GUIDANCE } from "@/lib/agent/guidance";
+import {
+  CONNECTION_GUIDANCE,
+  IMAGE_GUIDANCE,
+  SERVER_SETTINGS_GUIDANCE,
+} from "@/lib/agent/guidance";
 import { isDesignImage, imageMetadata } from "@/lib/agent/image-protocol";
 
 export function createMcpServer(api: PlannerApi, bridge: AgentConnection) {
@@ -13,6 +17,8 @@ export function createMcpServer(api: PlannerApi, bridge: AgentConnection) {
     {
       instructions:
         CONNECTION_GUIDANCE +
+        " " +
+        SERVER_SETTINGS_GUIDANCE +
         " " +
         IMAGE_GUIDANCE +
         " Query recipes through the configured planner HTTP API. Read get_status/get_design before editing; copy its session, revision and dataset fingerprint. Batches are atomic and undoable. Ask for target rates, max tier and external inputs. Solve success alone does not prove completion: use evaluate_design with all task constraints. Recipe IDs are authoritative; recipes are read-only.",

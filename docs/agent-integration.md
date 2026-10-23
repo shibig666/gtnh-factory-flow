@@ -28,11 +28,19 @@ MCP -> configured planner /api/datasets/... -> local dataset files
 
 The MCP never opens recipe files and never silently falls back to another source. Remote HTTPS canvas editing uses the site's relay. Queries need no paired browser; edits require its webpage to stay open.
 
+Available GTNH releases and datasets come from that server's manifest. Both MCP
+and the native plugin use its advertised versions without a hardcoded 2.9 filter.
+The server remains responsible for version support and compatible normalized data.
+
 ## Configure clients
 
 DeepSeek Harness also has a [native SDK plugin](../plugins/dsh-gtnh-planner/README.md).
 Install its single package through DSH's Plugins page to get native planning tools
-and system-prompt guidance. It does not use MCP or a filesystem skill provider;
+and system-prompt guidance. Its plugin detail page provides **服务器地址**,
+**连接模式** and **保存连接设置**. Saved changes apply immediately and require
+pairing with the new site's webpage. The equivalent MCP options remain
+`GTNH_PLANNER_URL` and `GTNH_AGENT_TRANSPORT`; restart the MCP after changing them.
+It does not use MCP or a filesystem skill provider;
 the setup below is for clients using the standalone MCP interface.
 
 Use absolute paths. Build once after changes; the built server does not depend on the caller's working directory.

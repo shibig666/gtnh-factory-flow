@@ -3,6 +3,18 @@ import { PlannerApi, compactData, recipeView } from "./data-client";
 import { fixtureRecipes } from "./__fixtures__/chain";
 
 describe("planner API adapter", () => {
+  it("accepts server-advertised dataset versions and rejects unadvertised identifiers", async () => {
+    const api = new PlannerApi("https://planner.example.com", async () =>
+      Response.json({
+        versions: [{ id: "server-next", gtnhVersion: "2.10", checksumSha256: "next-hash" }],
+      }),
+    );
+    await expect(api.identity("server-next")).resolves.toEqual({
+      versionId: "server-next",
+      fingerprint: "next-hash",
+    });
+    await expect(api.identity("unadvertised")).rejects.toThrow("configured planner");
+  });
   it("queries only the configured HTTP origin, encodes ids and has no file fallback", async () => {
     const request = vi.fn<typeof fetch>(async () => Response.json(fixtureRecipes[0]));
     const api = new PlannerApi("http://localhost:3000", request);

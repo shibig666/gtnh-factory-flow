@@ -15,6 +15,8 @@ Pair only the configured planner origin. Remote HTTPS uses its outbound website 
 
 ## Connect and inspect
 
+Check get_status for the effective planner URL. To change it, DSH users open Plugins > dsh-gtnh-planner > 服务器连接 and save the server address and connection mode; MCP users change GTNH_PLANNER_URL and GTNH_AGENT_TRANSPORT and restart the MCP. Settings changes close the old connection and require pairing again. Inspect interrupted edits before retrying. Available GTNH versions come from the configured server's dataset manifest, not the plugin version. Use an advertised dataset ID and its fingerprint.
+
 1. Call `get_status`. For queries alone no browser is needed. If canvas edits are requested and no browser is connected, call `begin_pairing` and show the returned code and planner URL. The user pastes it into Settings > Agent once; do not seek approval for every edit.
 2. Copy the connected browser's `sessionId`, `revision` and `dataset` exactly. A fingerprint identifies the dataset for this task. Pass `versionId` explicitly to all following recipe queries.
 3. Use `list_designs` and `open_design` for authorized existing designs. Create a new named design when requested and the connection allows it; otherwise edit the paired design. If a relay grant lacks new-design permission, ask the user to pair again with “Allow new designs in this session” enabled. Creation never replaces an existing design. Read `get_design` before edits.

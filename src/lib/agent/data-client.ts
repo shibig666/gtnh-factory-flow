@@ -113,11 +113,12 @@ export class PlannerApi {
     return this.json<DatasetManifest>("/datasets/gtnh/datasets.manifest.json");
   }
   async identity(versionId: string) {
-    const version = (await this.manifest()).versions.find(
-      (entry) => entry.id === versionId && entry.gtnhVersion.startsWith("2.9"),
-    );
+    const version = (await this.manifest()).versions.find((entry) => entry.id === versionId);
     if (!version)
-      throw new AgentError("DATASET_UNAVAILABLE", "Choose an available GTNH 2.9 dataset.");
+      throw new AgentError(
+        "DATASET_UNAVAILABLE",
+        "Choose a dataset available on the configured planner.",
+      );
     return datasetIdentity(version);
   }
   catalog(versionId: string) {

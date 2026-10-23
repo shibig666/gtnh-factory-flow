@@ -102,7 +102,13 @@ Next.js 的开发服务器不会替代 WSS 反代；本地测试完整中转可�
 
 ## 用户安装与配对
 
-DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.0.tgz`，在已有插件配置项设置：
+DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.2.tgz`，
+进入 **插件 > dsh-gtnh-planner > 服务器连接**，填写服务器地址，选择“自动”，
+点击“保存连接设置”。设置保存在当前 DSH profile，立即生效，无需重启。
+修改地址或模式会关闭旧连接并取消未完成的操作，需要在新地址网页重新配对。
+若操作被中断，先检查工程现状，再决定下一步。
+
+高级用户也可以在已有插件配置项设置：
 
 ```yaml
 - id: gtnh-planner
@@ -111,7 +117,8 @@ DSH 0.2.1-rc.2 或更新的 0.2.x：安装 `dist-dsh/dsh-gtnh-planner-0.3.0.tgz`
     connectionMode: auto
 ```
 
-这是插件本身的配置，不需要另外安装 MCP 或 skill。修改配置后重载插件并重新配对。
+这是插件本身的配置，不需要另外安装 MCP 或 skill。
+保存后让 Agent 调用 `gtnh_get_status` 核对地址，再调用 `gtnh_begin_pairing`。
 
 通用 MCP：运行 `npm run build:mcp` 后，在客户端配置 stdio 服务：
 

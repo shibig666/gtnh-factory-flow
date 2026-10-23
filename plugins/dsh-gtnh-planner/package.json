@@ -1,7 +1,7 @@
 {
   "name": "dsh-gtnh-planner",
-  "version": "0.3.0",
-  "description": "Native GTNH 2.9 production planning tools for DeepSeek Harness.",
+  "version": "0.3.2",
+  "description": "连接 GTNH 规划器服务器，查询配方、编辑产线并导出流程图。",
   "type": "module",
   "main": "lib/index.mjs",
   "exports": {
@@ -55,7 +55,9 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-ui-tool",
-        "@deepseek-ai/dsh-client-ui-attachment"
+        "@deepseek-ai/dsh-client-ui-attachment",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ],
       "platform": "web"
     },

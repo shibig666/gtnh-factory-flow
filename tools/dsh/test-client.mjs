@@ -58,15 +58,35 @@ ${plugin}
 const seats = new Map(); const factories = new Map();
 const slots = { inject: (_name, register) => register(), register: (spec, component) => { seats.set(spec.key ?? spec.name, { spec, component }); return () => {}; }, registerFactory: (spec, component) => { factories.set(spec.name, component); return () => {}; } };
 modules["@deepseek-ai/dsh-client-ui-attachment"].apply({ slots });
-modules["dsh-gtnh-planner"].apply({ slots });
+// Exercise the configuration UI contract; the separate settings test uses the real
+// host ConfigEditor, profile persistence and Loader volatile update path.
+let snapshot = { status: "ready", value: { plannerUrl: "http://localhost:3000", connectionMode: "auto" }, revision: 1, writable: true };
+const listeners = new Set();
+const form = { getSnapshot: () => snapshot, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+  mutate: async (ops, revision) => {
+    window.__writes = (window.__writes ?? 0) + 1;
+    if (window.__refuse || revision !== snapshot.revision) return false;
+    if (window.__fail) throw Error("测试：网络连接中断");
+    snapshot = { ...snapshot, value: Object.fromEntries(ops.map((op) => [op.path[0], op.value])), revision: snapshot.revision + 1 };
+    for (const listener of listeners) listener();
+    return true;
+  }
+};
+modules["dsh-gtnh-planner"].apply({ slots, configForms: { get: (id) => { if (id !== "gtnh-planner") throw Error(id); return form; } } });
+window.__snapshot = () => snapshot;
 const view = seats.get("gtnh_export_design_image");
-if (view.spec.children["tool.call.images"].scope !== "session") throw Error("Image gallery must be session scoped");
+if (view.spec.children) throw Error("The plugin must reuse the SDK gallery Factory without redeclaring its owned slots");
 const t = (key) => key;
 const renderFactorySlot = (name, props) => React.createElement(factories.get(name), { ...props, t });
 const renderSlot = (name, props) => React.createElement(seats.get(name).component, { ...props, renderFactorySlot });
 const block = { isError: false, content: [{ type: "text", text: ${JSON.stringify(JSON.stringify(metadata))} }, { type: "image", attachment: ${JSON.stringify(ref)} }] };
 const root = createRoot(document.getElementById("root"));
-root.render(React.createElement(view.component, { phase: "result", block, renderSlot, loadImage: async (attachment) => { if (attachment.attachmentId !== "test-durable-image") throw Error("Wrong attachment"); return "data:image/png;base64,${png.toString("base64")}"; }, openFile: (file) => { window.__opened = file; } }));
+root.render(React.createElement(view.component, { phase: "result", block, renderFactorySlot, loadImage: async (attachment) => { if (attachment.attachmentId !== "test-durable-image") throw Error("Wrong attachment"); return "data:image/png;base64,${png.toString("base64")}"; }, openFile: (file) => { window.__opened = file; } }));
+window.__settings = () => {
+  const settings = seats.get("dsh-gtnh-planner");
+  if (settings.spec.name !== "plugins.bundle.config") throw Error("Settings must appear in the package detail page");
+  root.render(React.createElement(settings.component, { view: "page" }));
+};
 `;
 const bundled = await build({
   stdin: { contents: bootstrap, resolveDir: process.cwd() },
@@ -104,6 +124,44 @@ try {
   assert.equal(await page.evaluate(() => window.__opened), metadata.filePath);
   assert.deepEqual(errors, []);
   await page.screenshot({ path: path.join(output, "image-card.png") });
+  await page.evaluate(() => window.__settings());
+  const url = page.getByRole("textbox", { name: "服务器地址", exact: true });
+  const mode = page.getByRole("combobox", { name: "连接模式", exact: true });
+  const save = page.getByRole("button", { name: "保存连接设置" });
+  await url.waitFor();
+  assert.equal(await url.inputValue(), "http://localhost:3000");
+  assert.equal(await save.isDisabled(), true);
+  await url.fill("https://planner.example.com/path");
+  await save.click();
+  await page.getByRole("alert").waitFor();
+  assert.equal(await page.evaluate(() => window.__writes ?? 0), 0);
+  await url.fill("https://planner.example.com/");
+  await mode.selectOption("relay");
+  await save.click();
+  await page.getByText("已保存。旧连接已关闭", { exact: false }).waitFor();
+  assert.deepEqual((await page.evaluate(() => window.__snapshot())).value, {
+    plannerUrl: "https://planner.example.com",
+    connectionMode: "relay",
+  });
+  await url.fill("https://second.example.com");
+  await page.evaluate(() => {
+    window.__refuse = true;
+  });
+  await save.click();
+  await page.getByRole("alert").filter({ hasText: "保存被拒绝" }).waitFor();
+  assert.equal(await url.inputValue(), "https://second.example.com");
+  await page.getByRole("button", { name: "重新读取" }).click();
+  assert.equal(await url.inputValue(), "https://planner.example.com");
+  await page.evaluate(() => {
+    window.__refuse = false;
+    window.__fail = true;
+  });
+  await url.fill("https://second.example.com");
+  await save.click();
+  await page.getByRole("alert").filter({ hasText: "网络连接中断" }).waitFor();
+  assert.equal(await url.inputValue(), "https://second.example.com");
+  await page.screenshot({ path: path.join(output, "connection-settings.png") });
+  assert.deepEqual(errors, []);
   const report = {
     pass: true,
     sdkGallery: "@deepseek-ai/dsh-client-ui-attachment",
@@ -112,6 +170,10 @@ try {
     height: dimensions.height,
     imageVisible: true,
     originalFileAction: true,
+    packageDetailSettings: true,
+    validatedAtomicSave: true,
+    refusedSavePreservesDraft: true,
+    failedSavePreservesDraft: true,
     pageErrors: errors,
   };
   await writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));

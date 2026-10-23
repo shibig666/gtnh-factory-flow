@@ -43,13 +43,13 @@ export function createPlannerTools(
   async function pinned(versionId?: string) {
     if (versionId) return api.identity(versionId);
     const manifest = await api.manifest();
-    const supported = manifest.versions.filter((entry) => entry.gtnhVersion.startsWith("2.9"));
+    const available = manifest.versions;
     const selected =
-      supported.find((entry) => entry.id === manifest.latestStableVersion) ??
-      supported.find((entry) => entry.id === manifest.latestDailyVersion) ??
-      supported[0];
+      available.find((entry) => entry.id === manifest.latestStableVersion) ??
+      available.find((entry) => entry.id === manifest.latestDailyVersion) ??
+      available[0];
     if (!selected)
-      throw new AgentError("DATASET_UNAVAILABLE", "The API offers no GTNH 2.9 dataset.");
+      throw new AgentError("DATASET_UNAVAILABLE", "The configured planner offers no datasets.");
     return api.identity(selected.id);
   }
   register(
@@ -68,16 +68,10 @@ export function createPlannerTools(
   );
   register(
     "list_datasets",
-    "List website-provided GTNH 2.9 datasets. Does not read local dataset files.",
+    "List datasets and GTNH versions provided by the configured planner. Does not read local dataset files.",
     z.object({}).strict(),
     true,
-    async () => {
-      const manifest = await api.manifest();
-      return {
-        ...manifest,
-        versions: manifest.versions.filter((entry) => entry.gtnhVersion.startsWith("2.9")),
-      };
-    },
+    () => api.manifest(),
   );
   register(
     "get_catalog",

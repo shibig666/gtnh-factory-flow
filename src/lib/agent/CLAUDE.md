@@ -15,6 +15,8 @@ These rules cover `src/lib/agent`, `src/agent-relay`, `src/mcp`,
 - Relay clients only dial the configured website. Public origins require HTTPS;
   HTTP loopback supports explicit relay testing and the legacy local bridge.
   Recipe authority remains the configured site's API, never direct dataset files.
+- Dataset availability and GTNH version selection come from the site's manifest.
+  Neither adapter adds a hardcoded GTNH release filter to the server's list.
 - Pairing codes carry no device credential and approve once. Browser and agent
   tokens are separate, scoped to a session and granted designs, and memory-only.
   New designs require explicit consent. Unrelated designs are never enumerated.
@@ -31,6 +33,8 @@ These rules cover `src/lib/agent`, `src/agent-relay`, `src/mcp`,
   limits, validate the PNG hash and dimensions, and release temporary captures.
   Never put base64 in model-facing text. MCP emits image content; DSH commits
   image/file attachments and renders its keyed chat view through the host gallery.
+  Use the SDK's `conversation.images.content` Factory. Do not redeclare
+  `tool.call.images`: the SDK owns that slot and a duplicate unloads the client plugin.
 
 Verification: `npm run typecheck`, `npm test`, `npm run build:mcp`,
 `npm run build:dsh`, `npm run build:agent-relay`, `npm run build`.
@@ -41,6 +45,10 @@ The native SDK and isolated installer checks are `test:dsh` and
 recipe or an LLM's autonomous planning quality. Keep captures under `scratch/`.
 For DSH image UI changes, run `test:dsh:client` against the target SDK. Its gallery
 test uses the official attachment UI; it does not control the user's Desktop app.
+After `test:dsh:install`, run `test:dsh:app` for client registration or settings
+changes. It mounts the complete DSH Web roster, opens the real package detail
+page and verifies saved settings after reload; isolated component fixtures cannot
+detect conflicts with the host's slot declarations.
 
 Deployment templates and current scope: `docs/agent-relay.md`. A build or push
 does not authorize deployment.

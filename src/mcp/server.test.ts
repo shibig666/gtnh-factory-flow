@@ -20,7 +20,7 @@ async function fixtureApi() {
           versions: [
             {
               id: "fixture",
-              gtnhVersion: "2.9",
+              gtnhVersion: "2.10",
               publishedAt: "fixture",
               checksumSha256: "fixture-hash",
               sourceInfo: { generatedAt: "fixture" },
@@ -65,7 +65,15 @@ describe("MCP over actual stdio", () => {
     );
     const datasets = await client.callTool({ name: "list_datasets", arguments: {} });
     expect(datasets.isError).toBeFalsy();
-    expect(datasets.structuredContent).toMatchObject({ latestStableVersion: "fixture" });
+    expect(datasets.structuredContent).toMatchObject({
+      latestStableVersion: "fixture",
+      versions: [{ id: "fixture", gtnhVersion: "2.10" }],
+    });
+    const catalog = await client.callTool({ name: "get_catalog", arguments: {} });
+    expect(catalog.isError).toBeFalsy();
+    expect(catalog.structuredContent).toMatchObject({
+      dataset: { versionId: "fixture", fingerprint: "fixture-hash" },
+    });
     const recipes = await client.callTool({
       name: "get_recipes",
       arguments: { versionId: "fixture", recipeIds: ["fixture:smelt"] },

@@ -7,7 +7,7 @@ import { createDshClient } from "./test-runtime.mjs";
 
 const version = {
   id: "dsh-fixture-2.9",
-  gtnhVersion: "2.9",
+  gtnhVersion: "2.10",
   channel: "stable",
   publishedAt: "2026-01-01T00:00:00Z",
   checksumSha256: "dsh-fixture-fingerprint",
@@ -60,6 +60,7 @@ try {
   assert.ok(!datasetResponse.isError, JSON.stringify(datasetResponse));
   const datasets = datasetResponse.structuredContent;
   assert.equal(datasets.versions[0].id, version.id);
+  assert.equal(datasets.versions[0].gtnhVersion, "2.10");
   assert.equal(client.ctx.skills, undefined);
   assert.deepEqual((await readdir(path.join(client.installation.packageRoot, "lib"))).sort(), [
     "client.js",
