@@ -1,6 +1,7 @@
 import Schema from "@deepseek-ai/schemastery";
 import { z } from "zod";
-import { BrowserBridge } from "@/lib/agent/bridge";
+import { createAgentConnection } from "@/lib/agent/create-connection";
+import { CONNECTION_GUIDANCE } from "@/lib/agent/guidance";
 import { PlannerApi } from "@/lib/agent/data-client";
 import { createPlannerTools } from "@/lib/agent/tools";
 import { errorResult } from "@/lib/agent/protocol";
@@ -13,11 +14,14 @@ export const Config = Schema.object({
   plannerUrl: Schema.string()
     .default("http://localhost:3000")
     .description("Planner address. Use the exact same origin in the browser."),
+  connectionMode: Schema.union(["auto", "local", "relay"])
+    .default("auto")
+    .description("Auto: HTTP loopback uses a local bridge; HTTPS uses the website relay."),
 });
 
 export async function apply(ctx, config) {
   const api = new PlannerApi(config.plannerUrl);
-  const bridge = new BrowserBridge(api.baseUrl);
+  const bridge = createAgentConnection(api.baseUrl, config.connectionMode);
   const starting = bridge.start();
   ctx.effect(() => async () => {
     await starting.catch(() => undefined);
@@ -72,6 +76,6 @@ export async function apply(ctx, config) {
     name: "gtnh-planner",
     order: 70,
     interpolate: false,
-    text: instructions,
+    text: `${CONNECTION_GUIDANCE}\n\n${instructions}`,
   });
 }

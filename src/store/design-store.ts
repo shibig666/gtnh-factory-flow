@@ -96,7 +96,7 @@ interface DesignStore {
   /** A new design that opens on its task board (`primaryView: "tasks"`). */
   addTaskBoard: () => Promise<void>;
   /** Adds `project` as a new design tab and switches to it (community imports). */
-  importProjectAsDesign: (project: FactoryProject, name: string) => Promise<void>;
+  importProjectAsDesign: (project: FactoryProject, name: string, beforeOpen?: (id: string) => void) => Promise<void>;
   /**
    * Opens a plan someone shared with this account: its local copy when this
    * device has one (`cloud`), else a new local copy of `project`. It then
@@ -623,12 +623,14 @@ export const useDesignStore = create<DesignStore>((set, get) => ({
     set(await listLibrary());
   },
 
-  importProjectAsDesign: async (project, name) => {
+  importProjectAsDesign: async (project, name, beforeOpen) => {
     const { activeDesignId, designs } = get();
     await flushCanvasInto(designs.find((design) => design.id === activeDesignId));
 
     const record = createDesignRecord(project, name || UNTITLED_DESIGN_NAME);
     await writeDesign(record);
+    // Agent grants must learn the new ID before the active-design subscription publishes it.
+    beforeOpen?.(record.id);
     landOnDesign(set, record);
     // A plan that arrives is a plan meant to be LOOKED at, whichever door it
     // came through: a shared link, the setup shelf beside the board, a lesson.

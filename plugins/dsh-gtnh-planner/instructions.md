@@ -12,7 +12,8 @@ user pastes it in the webpage's Settings > Agent panel and keeps the page open.
 Pairing authorizes the requested editing session; do not ask permission per card.
 Use DSH's tool permissions normally; pairing does not bypass them.
 
-Create a new design unless explicitly asked to edit an existing one. Read the
+Create a new design when requested and the connection allows it. Otherwise work in the
+paired design; request a new pairing with new-design permission when needed. Read the
 design and preserve its exact sessionId, revision, dataset version and fingerprint
 before edits. Recursively discover real recipes until all consumed inputs reach
 allowed supplies. Page search results and read selected recipes in planning detail;

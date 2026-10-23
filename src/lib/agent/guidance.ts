@@ -1,0 +1,3 @@
+/** Shared connection rules for the native plugin, MCP instructions and companion skill. */
+export const CONNECTION_GUIDANCE =
+  "Pair only the configured planner origin. Remote HTTPS uses its outbound website relay and requires no client listening port. Keep the webpage open. In relay mode only granted designs are accessible; create designs only when grant.allowCreate permits it. Switching to an ungranted design revokes pairing. Legacy local pairing authorizes the browser session, including new designs. Cloud/live designs are unsupported. Reconnect never replays writes: after OUTCOME_UNKNOWN read the actual design before another edit.";

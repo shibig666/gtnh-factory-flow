@@ -3,14 +3,16 @@ import { z } from "zod";
 import type { PlannerApi } from "@/lib/agent/data-client";
 import { errorResult } from "@/lib/agent/protocol";
 import { createPlannerTools } from "@/lib/agent/tools";
-import type { BrowserBridge } from "./bridge";
+import type { AgentConnection } from "@/lib/agent/connection";
+import { CONNECTION_GUIDANCE } from "@/lib/agent/guidance";
 
-export function createMcpServer(api: PlannerApi, bridge: BrowserBridge) {
+export function createMcpServer(api: PlannerApi, bridge: AgentConnection) {
   const server = new McpServer(
-    { name: "gtnh-factory-flow", version: "1.0.0" },
+    { name: "gtnh-factory-flow", version: "1.1.0" },
     {
       instructions:
-        "Query recipes through the configured planner HTTP API. Pair a local webpage for edits. Read get_status/get_design before editing; copy its session, revision and dataset fingerprint. Batches are atomic and undoable. Never retry an unknown write without inspecting the design. Ask for target rates, max tier and external inputs. Solve success alone does not prove completion: use evaluate_design with all task constraints. Recipe IDs are authoritative; recipes are read-only.",
+        CONNECTION_GUIDANCE +
+        " Query recipes through the configured planner HTTP API. Read get_status/get_design before editing; copy its session, revision and dataset fingerprint. Batches are atomic and undoable. Ask for target rates, max tier and external inputs. Solve success alone does not prove completion: use evaluate_design with all task constraints. Recipe IDs are authoritative; recipes are read-only.",
     },
   );
   for (const tool of createPlannerTools(api, bridge)) {

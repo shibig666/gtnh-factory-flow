@@ -42,7 +42,10 @@ export async function installTestPackage() {
   return { packageRoot, metadata, release: () => hook.deregister() };
 }
 
-export async function createDshClient(plannerUrl = "http://localhost:3000") {
+export async function createDshClient(
+  plannerUrl = "http://localhost:3000",
+  connectionMode = "auto",
+) {
   const installation = await installTestPackage();
   let ctx;
   try {
@@ -58,7 +61,7 @@ export async function createDshClient(plannerUrl = "http://localhost:3000") {
     ctx = new Context();
     ctx.plugin(prompt.default, {});
     ctx.plugin(tools.default, { mode: "native" });
-    const fiber = ctx.plugin(plugin, { plannerUrl });
+    const fiber = ctx.plugin(plugin, { plannerUrl, connectionMode });
     await fiber;
     const deadline = Date.now() + 30_000;
     while (!ctx.tools?.get("gtnh_get_status")) {

@@ -1,6 +1,6 @@
 # GTNH Factory Flow MCP
 
-The MCP server exposes recipe discovery and a paired local canvas. The companion skill guides a client through target-driven recipe selection, graph construction and solver validation. The server does not run another LLM or need a separate model API key.
+The MCP server exposes recipe discovery and a paired browser canvas, locally or on a deployed HTTPS site. The companion skill guides target-driven recipe selection, graph construction and solver validation. It does not run another LLM or need a separate model API key. For public hosting, follow the [relay deployment guide](agent-relay.md).
 
 ## Start
 
@@ -26,7 +26,7 @@ MCP -> configured planner /api/datasets/... -> local dataset files
                                         or -> configured remote dataset backend
 ```
 
-The MCP never opens recipe files and never silently falls back to another source. A remote origin may be configured for query-only use; canvas edits require a local planner instance. The server can answer dataset queries without a paired browser.
+The MCP never opens recipe files and never silently falls back to another source. Remote HTTPS canvas editing uses the site's relay. Queries need no paired browser; edits require its webpage to stay open.
 
 ## Configure clients
 
@@ -43,7 +43,7 @@ Codex `config.toml`:
 [mcp_servers.gtnh]
 command = "node"
 args = ['E:\source\gtnh-factory-flow\dist-mcp\main.mjs']
-env = { GTNH_PLANNER_URL = "http://localhost:3000" }
+env = { GTNH_PLANNER_URL = "https://planner.example.com", GTNH_AGENT_TRANSPORT = "auto" }
 tool_timeout_sec = 90
 ```
 
@@ -55,7 +55,9 @@ claude mcp add --transport stdio --env GTNH_PLANNER_URL=http://localhost:3000 gt
 
 Copy `skills/gtnh-production-planner` into the client's skill directory. For repo-scoped use this is `.agents/skills/gtnh-production-planner` for Codex and `.claude/skills/gtnh-production-planner` for Claude Code. Keep one maintained source; reinstall it after changes. Invoke `$gtnh-production-planner` in Codex or the corresponding skill in Claude Code. Configuration and skill installation are explicit setup steps; the repository does not overwrite user configuration automatically.
 
-Ask the agent to call `begin_pairing`, open the exact returned planner address, then open **Settings > Agent** and paste the code. It expires after 10 minutes for the first connection. A browser tab is bound to that code; generating a new code replaces the connection. Keep the page open. Disconnect is visible in the same panel. Pairing credentials are not saved to disk or logged to stdout.
+Ask the agent to call `begin_pairing`, open the returned address, then paste the code in **Settings > Agent**. Relay codes expire in ten minutes and can be approved once. Default permission covers the selected design; enable **Allow new designs in this session** when needed. Grants last at most twelve hours. Keep the page open. Disconnect or switching to an ungranted design revokes access. Pairing credentials stay in memory and are not logged.
+
+`GTNH_AGENT_TRANSPORT=auto` uses the legacy local bridge for HTTP loopback and the website relay for HTTPS. `relay` forces the relay for local testing; `local` requires loopback. Public addresses require HTTPS. In relay mode both the browser and MCP make outbound connections to the website's WSS port 443, without opening a local port. Missing relay configuration is an explicit error.
 
 ## Tool behaviour
 
@@ -75,7 +77,7 @@ Saves use the existing IndexedDB concurrency guard even while the page is unfocu
 
 `evaluate_design` waits for non-stale books, checks all declared constraints, and reports `complete`. A feasible solver answer can still be incomplete because of unintended imports, output spills, missing anchors or machine gates. Theoretical counts and construction ceilings are reported separately. Generators are not automatically planned; electricity is external by default. Kept tools and initial charges still require the agent to disclose setup prerequisites.
 
-The bridge binds 127.0.0.1 on an ephemeral port, checks the exact browser Origin and Host, and requires a random pairing credential. The browser rejects non-loopback pages and mismatched API origins. Commands run serially. Recent request IDs prevent duplicate execution in the same page session. After a timeout, page reload or dropped connection, read current state before attempting another mutation; no automatic write replay occurs.
+The legacy local bridge binds 127.0.0.1 on an ephemeral port and validates Origin, Host and a random credential. The remote relay uses separate agent/browser credentials, same-origin approval and design-scoped authorization. Commands run serially in the webpage. Recent request IDs prevent duplicate execution within bounded caches. After timeout or disconnect, inspect the current state before another mutation. Transient relay reconnections never replay writes. Page refresh or relay restart requires pairing again.
 
 Arrange reads the board's published geometry and uses the existing background worker. It refuses to guess card dimensions if the board is not ready. Existing boards with groups or annotations must use the webpage arrange control. Export returns JSON, plan code and link; opening them follows the existing new-design import rule.
 
@@ -88,6 +90,7 @@ npm run build:mcp
 npm run build
 npm run test:icons:browsers
 npm run test:agent:browser
+npm run test:agent:relay:browser
 ```
 
 The browser test starts the built Next.js app and fronts it with a deterministic HTTP dataset fixture, then uses the official MCP client over stdio and pairs through the actual settings UI in a headless browser. The fixture recipes are artificial and verify protocol, conservation, persistence and rollback behaviour; they are not evidence that a particular GTNH recipe is correct. Live API smoke testing is separate and read-only. No deployment is part of this integration.

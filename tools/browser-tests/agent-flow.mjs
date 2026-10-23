@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { AgentRelayService } from "../../src/agent-relay/service.ts";
 import { chromium } from "playwright-core";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
@@ -13,7 +14,10 @@ import {
   fixtureConstraints,
 } from "../../src/lib/agent/__fixtures__/chain.ts";
 
-const output = path.resolve(process.env.AGENT_TEST_DSH ? "scratch/dsh-browser" : "scratch/agent-browser");
+const relayMode = process.env.AGENT_TEST_RELAY === "1";
+const output = path.resolve(
+  `scratch/${process.env.AGENT_TEST_DSH ? "dsh" : "agent"}-${relayMode ? "relay-" : ""}browser`,
+);
 await mkdir(output, { recursive: true });
 const recipes = fixtureRecipes.map((recipe) => ({
   ...recipe,
@@ -191,6 +195,40 @@ const proxy = createServer((req, res) => {
 });
 await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${proxy.address().port}`;
+let relay;
+let relayPort;
+const relayBrowserSockets = new Set();
+const relayAgentSockets = new Set();
+if (relayMode) {
+  relay = new AgentRelayService({ origin });
+  relayPort = await relay.start(0);
+  proxy.on("upgrade", (request, socket, head) => {
+    const upstream = httpRequest({
+      hostname: "127.0.0.1",
+      port: relayPort,
+      path: request.url,
+      headers: request.headers,
+    });
+    upstream.on("upgrade", (response, remote, remoteHead) => {
+      const peers = request.headers.origin ? relayBrowserSockets : relayAgentSockets;
+      peers.add(socket);
+      socket.on("close", () => peers.delete(socket));
+      socket.write(
+        `HTTP/1.1 101 Switching Protocols\r\n${Object.entries(response.headers)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join("\r\n")}\r\n\r\n`,
+      );
+      if (head.length) remote.write(head);
+      if (remoteHead.length) socket.write(remoteHead);
+      remote.pipe(socket).pipe(remote);
+      socket.on("error", () => remote.destroy());
+      remote.on("error", () => socket.destroy());
+      socket.on("close", () => remote.destroy());
+    });
+    upstream.on("error", () => socket.destroy());
+    upstream.end();
+  });
+}
 
 const waitFor = async (predicate, message, timeout = 30_000) => {
   const until = Date.now() + timeout;
@@ -214,7 +252,12 @@ try {
     ],
     {
       cwd: process.cwd(),
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", GTNH_PREWARM_ON_STARTUP: "0" },
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+        GTNH_PREWARM_ON_STARTUP: "0",
+        AGENT_RELAY_INTERNAL_URL: relayMode ? `http://127.0.0.1:${relayPort}` : "",
+      },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
@@ -234,7 +277,7 @@ try {
   }, "Next.js did not start");
   if (process.env.AGENT_TEST_DSH) {
     const { createDshClient } = await import("../dsh/test-runtime.mjs");
-    client = await createDshClient(origin);
+    client = await createDshClient(origin, relayMode ? "relay" : "auto");
     report.dshRuntime = client.runtimeVersion;
     report.nativePlugin = "dsh-gtnh-planner";
   } else {
@@ -243,7 +286,11 @@ try {
       new StdioClientTransport({
         command: process.execPath,
         args: [path.resolve("dist-mcp/main.mjs")],
-        env: { ...process.env, GTNH_PLANNER_URL: origin },
+        env: {
+          ...process.env,
+          GTNH_PLANNER_URL: origin,
+          GTNH_AGENT_TRANSPORT: relayMode ? "relay" : "auto",
+        },
         stderr: "pipe",
       }),
     );
@@ -269,11 +316,13 @@ try {
   };
   const write = async (name, args = {}) =>
     call(name, { ...(await target()), requestId: randomUUID(), ...args });
-  const pair = async (page) => {
+  const pair = async (page, allowCreate = true) => {
     const code = (await call("begin_pairing")).code;
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByRole("tab", { name: "Agent", exact: true }).click();
     await page.getByLabel("Agent pairing code").fill(code);
+    if (relayMode)
+      await page.getByLabel("Allow new designs in this session").setChecked(allowCreate);
     await page.getByRole("button", { name: "Connect", exact: true }).click();
     await waitFor(async () => (await call("get_status")).connected, "Browser did not pair");
     await waitFor(async () => Boolean((await getStatus()).dataset), "Dataset did not load");
@@ -281,6 +330,9 @@ try {
   };
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  await context.addInitScript(() =>
+    localStorage.setItem("gtnh-factory-flow.mod-announcement-dismissed.v1", "1"),
+  );
   const page = await context.newPage();
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(origin, { waitUntil: "load" });
@@ -397,6 +449,51 @@ try {
   );
   report.stressCards = 100;
   report.stressEdges = 75;
+  if (relayMode) {
+    const stale = await target();
+    for (const peer of relayBrowserSockets) peer.destroy();
+    await waitFor(
+      async () => !(await call("get_status")).connected,
+      "Browser interruption was not detected",
+    );
+    await page.keyboard.press("Control+z");
+    await waitFor(
+      async () => (await call("get_status")).connected,
+      "Browser did not reconnect to its grant",
+    );
+    await waitFor(
+      async () => (await getStatus()).revision > stale.expectedRevision,
+      "Offline manual edits did not advance the revision",
+    );
+    const rejected = await callRaw("apply_design_actions", {
+      ...stale,
+      requestId: randomUUID(),
+      actions: [{ type: "remove_entity", entityId: "unused" }],
+    });
+    assert.equal(rejected.error?.code, "REVISION_CONFLICT");
+    await page.keyboard.press("Control+Shift+z");
+    await waitFor(
+      async () => (await call("get_design", { ...(await target()) })).project.counts.nodes === 50,
+      "Redo did not restore the stress design",
+    );
+    for (const peer of relayAgentSockets) peer.destroy();
+    await waitFor(
+      async () => !(await call("get_status")).connected,
+      "Agent interruption was not detected",
+    );
+    await waitFor(
+      async () => (await call("get_status")).connected,
+      "Agent did not reconnect to its grant",
+    );
+    assert.equal(
+      (await call("evaluate_design", { ...(await target()), constraints: stressConstraints }))
+        .complete,
+      true,
+    );
+    report.browserReconnect = true;
+    report.agentReconnect = true;
+    report.offlineRevisionGuard = true;
+  }
   const profile = async (label) => {
     // Let the camera animation and the most recent solve settle before comparing idle/hover cost.
     await page.waitForTimeout(750);
@@ -432,6 +529,7 @@ try {
   await page.keyboard.press("Escape");
   report.disconnectedFrameMs = await profile("disconnected");
   await page.reload({ waitUntil: "load" });
+  if (relayMode) await page.locator(`[data-design-id="${originalDesignId}"]`).click();
   await pair(page);
   await call("open_design", {
     ...(await target()),
@@ -522,6 +620,30 @@ try {
     actions: [{ type: "remove_entity", entityId: added.refs.wiremill }],
   });
   assert.equal(mismatch.error?.code, "DATASET_CHANGED");
+  if (relayMode) {
+    fingerprint = version.checksumSha256;
+    await pair(page, false);
+    const granted = await call("list_designs");
+    assert.deepEqual(
+      granted.designs.map((entry) => entry.id),
+      [originalDesignId],
+    );
+    const { designId: _designId, ...createTarget } = await target();
+    const denied = await callRaw("create_design", {
+      ...createTarget,
+      requestId: randomUUID(),
+      name: "Not authorized",
+    });
+    assert.equal(denied.error?.code ?? denied.result?.error?.code, "PERMISSION_DENIED");
+    await page.getByRole("tab", { name: "Agent performance", exact: false }).click();
+    await waitFor(
+      async () => !(await call("get_status")).connected,
+      "Switching to an ungranted design did not revoke pairing",
+    );
+    report.designIsolation = true;
+    report.createPermission = true;
+    report.switchRevocation = true;
+  }
   report.apiRequests = apiPaths.length;
   report.pageErrors = pageErrors;
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
@@ -547,6 +669,7 @@ try {
   await writeFile(path.join(output, "next.log"), nextLogs);
   await client?.close();
   await browser?.close();
+  await relay?.stop();
   await new Promise((resolve) => proxy.close(resolve));
   child?.kill();
 }

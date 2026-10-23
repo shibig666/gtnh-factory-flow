@@ -5,6 +5,8 @@ description: Use the GTNH Factory Flow MCP to find GTNH items and recipes, build
 
 Use the configured planner's HTTP API as the recipe authority. Its server chooses local datasets or its remote dataset backend. Never read dataset files yourself, invent recipe IDs, edit recipe bodies or scrape the rendered recipe UI.
 
+Pair only the configured planner origin. Remote HTTPS uses its outbound website relay and requires no client listening port. Keep the webpage open. In relay mode only granted designs are accessible; create designs only when grant.allowCreate permits it. Switching to an ungranted design revokes pairing. Legacy local pairing authorizes the browser session, including new designs. Cloud/live designs are unsupported. Reconnect never replays writes: after OUTCOME_UNKNOWN read the actual design before another edit.
+
 ## Establish the task
 
 - Obtain target resources and rates, maximum technology tier, and allowed external inputs. Ask when these material constraints are missing. Clarify ambiguous item names using search results; Chinese instructions may need English dataset search terms.
@@ -15,7 +17,7 @@ Use the configured planner's HTTP API as the recipe authority. Its server choose
 
 1. Call `get_status`. For queries alone no browser is needed. If canvas edits are requested and no browser is connected, call `begin_pairing` and show the returned code and planner URL. The user pastes it into Settings > Agent once; do not seek approval for every edit.
 2. Copy the connected browser's `sessionId`, `revision` and `dataset` exactly. A fingerprint identifies the dataset for this task. Pass `versionId` explicitly to all following recipe queries.
-3. Use `list_designs` and `open_design` when asked to edit an existing design. Otherwise create a new named design. Creation never replaces an existing design. Read `get_design` before edits.
+3. Use `list_designs` and `open_design` for authorized existing designs. Create a new named design when requested and the connection allows it; otherwise edit the paired design. If a relay grant lacks new-design permission, ask the user to pair again with “Allow new designs in this session” enabled. Creation never replaces an existing design. Read `get_design` before edits.
 
 ## Build and improve the chain
 

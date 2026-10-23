@@ -67,7 +67,9 @@ try {
     ),
   );
   const instructions = await readFile("plugins/dsh-gtnh-planner/instructions.md", "utf8");
-  assert.equal(client.guidance.text, instructions);
+  assert.ok(client.guidance.text.endsWith(instructions));
+  assert.ok(client.guidance.text.includes("grant.allowCreate"));
+  assert.ok(client.guidance.text.includes("no client listening port"));
   report.nativeSdk = true;
   const code = (await client.callTool({ name: "begin_pairing" })).structuredContent;
   assert.equal(typeof code.code, "string");

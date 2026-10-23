@@ -66,6 +66,7 @@ export class BrowserBridge {
       code: `gtnh-agent.${Buffer.from(JSON.stringify({ v: AGENT_PROTOCOL, url: this.url, token: this.token, apiBaseUrl: this.apiBaseUrl })).toString("base64url")}`,
       expiresAt: new Date(this.expires).toISOString(),
       plannerUrl: this.apiBaseUrl,
+      transport: "local",
       instructions:
         "Open Settings > Agent on this planner URL and paste the pairing code. Pairing allows edits in this browser tab.",
     };
@@ -74,6 +75,7 @@ export class BrowserBridge {
   status() {
     return {
       connected: this.peer?.readyState === WebSocket.OPEN,
+      transport: "local",
       plannerUrl: this.apiBaseUrl,
       browser: this.browserStatus,
     };

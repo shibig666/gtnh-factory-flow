@@ -22,16 +22,34 @@ import {
 } from "./protocol";
 import { PlannerApi, datasetIdentity } from "./data-client";
 import { applyAgentActions, designView, evaluateDesign, machineOptions } from "./editor";
+import {
+  RELAY_PAIRING_PREFIX,
+  RELAY_PROTOCOL,
+  relayCodeSchema,
+  relayGrantSchema,
+  relaySocketUrl,
+  type RelayGrant,
+} from "./relay-protocol";
 
 export const useAgentConnection = create<{
   state: "disconnected" | "connecting" | "connected" | "error";
   message?: string;
   designId?: string;
+  allowCreate?: boolean;
 }>(() => ({ state: "disconnected" }));
 const sessionId = typeof crypto !== "undefined" ? crypto.randomUUID() : "server";
 let revision = 0;
 let socket: WebSocket | undefined;
 let stopTracking: (() => void) | undefined;
+let connectEpoch = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+interface BrowserScope {
+  grant: RelayGrant;
+  designIds: Set<string>;
+  token: string;
+  creating: boolean;
+}
+let activeScope: BrowserScope | undefined;
 let queue: Promise<unknown> = Promise.resolve();
 const receipts = new Map<string, { serialized: string; result: unknown }>();
 const MUTATIONS = new Set([
@@ -69,18 +87,45 @@ function status() {
     revision,
     designId: state.activeDesignId,
     dataset,
-    readOnly: useFactoryStore.getState().isReadOnly,
+    readOnly:
+      useFactoryStore.getState().isReadOnly ||
+      useFactoryStore.getState().checklistMode ||
+      !!liveDesignIdInThisTab() ||
+      !!state.designs.find((entry) => entry.id === state.activeDesignId)?.cloud,
     saveState: state.saveState,
   };
 }
 
 function publishStatus() {
+  if (activeScope?.creating) return;
+  const id = useDesignStore.getState().activeDesignId;
+  if (activeScope && id && !activeScope.designIds.has(id)) {
+    disconnectAgent();
+    useAgentConnection.setState({
+      message: "Design changed. Pair this design before agent edits.",
+    });
+    return;
+  }
   useAgentConnection.setState({ designId: useDesignStore.getState().activeDesignId });
   if (socket?.readyState === WebSocket.OPEN)
     socket.send(JSON.stringify({ t: "status", status: status() }));
 }
 
 export function disconnectAgent() {
+  connectEpoch++;
+  clearTimeout(reconnectTimer);
+  const previousScope = activeScope;
+  activeScope = undefined;
+  if (previousScope)
+    void fetch("/api/agent/revoke", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${previousScope.token}`,
+      },
+      body: JSON.stringify({ pairingId: previousScope.grant.pairingId }),
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => undefined);
   const closing = socket;
   socket = undefined;
   closing?.close();
@@ -89,8 +134,75 @@ export function disconnectAgent() {
   useAgentConnection.setState({ state: "disconnected", message: undefined });
 }
 
-export function connectAgent(code: string) {
+export async function connectAgent(code: string, options: { allowCreate?: boolean } = {}) {
   disconnectAgent();
+  const epoch = connectEpoch;
+  if (code.trim().startsWith(RELAY_PAIRING_PREFIX)) {
+    const config = relayCodeSchema.parse(
+      JSON.parse(
+        atob(code.trim().slice(RELAY_PAIRING_PREFIX.length).replace(/-/g, "+").replace(/_/g, "/")),
+      ),
+    );
+    if (
+      config.origin !== window.location.origin ||
+      (window.location.protocol !== "https:" &&
+        !["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname))
+    )
+      throw new AgentError(
+        "ORIGIN_MISMATCH",
+        "Open the exact HTTPS planner address used by the agent.",
+      );
+    if (status().readOnly)
+      throw new AgentError(
+        "READ_ONLY",
+        "Choose an editable browser design. Cloud and live designs are not supported by this bridge.",
+      );
+    if (!status().designId && !options.allowCreate)
+      throw new AgentError("PERMISSION_DENIED", "Open a design or allow new designs.");
+    useAgentConnection.setState({ state: "connecting", message: undefined });
+    const response = await fetch("/api/agent/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pairingId: config.pairingId,
+        userCode: config.userCode,
+        status: status(),
+        allowCreate: options.allowCreate ?? false,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      useAgentConnection.setState({ state: "error" });
+      throw new AgentError(
+        result.error?.code ?? "PAIRING_REFUSED",
+        result.error?.message ?? "Pairing refused.",
+      );
+    }
+    const approved = z
+      .object({ browserToken: z.string().min(32), grant: relayGrantSchema })
+      .parse(result);
+    if (epoch !== connectEpoch) {
+      void fetch("/api/agent/revoke", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${approved.browserToken}`,
+        },
+        body: JSON.stringify({ pairingId: approved.grant.pairingId }),
+      }).catch(() => undefined);
+      return;
+    }
+    const scope: BrowserScope = {
+      grant: approved.grant,
+      designIds: new Set(approved.grant.designIds),
+      token: approved.browserToken,
+      creating: false,
+    };
+    activeScope = scope;
+    openSocket(relaySocketUrl(config.origin), new PlannerApi(config.origin), scope);
+    return;
+  }
   if (!["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname))
     throw new AgentError("LOCAL_ONLY", "Connect from a local planner page.");
   const config = z
@@ -123,25 +235,54 @@ export function connectAgent(code: string) {
       "Open the exact planner address configured in the MCP server.",
     );
   const api = new PlannerApi(config.apiBaseUrl);
+  openSocket(endpoint.href, api, undefined, config.token);
+}
+
+function openSocket(
+  endpoint: string,
+  api: PlannerApi,
+  scope?: BrowserScope,
+  localCredential?: string,
+) {
   useAgentConnection.setState({ state: "connecting", message: undefined });
   const ws = new WebSocket(endpoint);
   socket = ws;
   ws.onopen = () =>
     ws.send(
-      JSON.stringify({
-        t: "hello",
-        token: config.token,
-        browserId: sessionId,
-        apiBaseUrl: window.location.origin,
-        v: AGENT_PROTOCOL,
-        status: status(),
-      }),
+      JSON.stringify(
+        scope
+          ? {
+              t: "hello",
+              v: RELAY_PROTOCOL,
+              role: "browser",
+              pairingId: scope.grant.pairingId,
+              token: scope.token,
+            }
+          : {
+              t: "hello",
+              token: localCredential,
+              browserId: sessionId,
+              apiBaseUrl: window.location.origin,
+              v: AGENT_PROTOCOL,
+              status: status(),
+            },
+      ),
     );
   ws.onmessage = (event) => {
     if (socket !== ws) return;
-    const message = JSON.parse(String(event.data));
+    let message;
+    try {
+      message = JSON.parse(String(event.data));
+    } catch {
+      ws.close(1008, "Invalid agent message");
+      return;
+    }
     if (message.t === "ready") {
-      useAgentConnection.setState({ state: "connected" });
+      useAgentConnection.setState({
+        state: "connected",
+        allowCreate: scope?.grant.allowCreate ?? true,
+      });
+      stopTracking?.();
       const offFactory = useFactoryStore.subscribe((state, previous) => {
         if (state.project !== previous.project || state.dataset !== previous.dataset) {
           revision++;
@@ -165,7 +306,8 @@ export function connectAgent(code: string) {
           if (socket !== ws || ws.readyState !== WebSocket.OPEN) return;
           const command = browserCommandSchema.parse(message.command);
           const serialized = JSON.stringify(command);
-          const old = receipts.get(command.requestId);
+          const receiptKey = `${scope?.grant.pairingId ?? localCredential}:${command.requestId}`;
+          const old = receipts.get(receiptKey);
           let result;
           if (old)
             result =
@@ -186,13 +328,14 @@ export function connectAgent(code: string) {
                   command,
                   api,
                   () => socket === ws && ws.readyState === WebSocket.OPEN,
+                  scope,
                 ),
                 status: status(),
               };
             } catch (error) {
               result = { ok: false, error: errorResult(error), status: status() };
             }
-            receipts.set(command.requestId, { serialized, result });
+            receipts.set(receiptKey, { serialized, result });
             if (receipts.size > 1000) receipts.delete(receipts.keys().next().value!);
           }
           if (socket === ws && ws.readyState === WebSocket.OPEN) {
@@ -214,6 +357,7 @@ export function connectAgent(code: string) {
                 }),
               );
             } else ws.send(encoded);
+            publishStatus();
           }
         })
         .catch((error) => {
@@ -227,18 +371,34 @@ export function connectAgent(code: string) {
     if (socket === ws)
       useAgentConnection.setState({
         state: "error",
-        message: "Could not connect to the local MCP bridge.",
+        message: "Could not connect to the agent service.",
       });
   };
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     if (socket === ws) {
-      stopTracking?.();
-      stopTracking = undefined;
+      const canReconnect =
+        scope &&
+        activeScope === scope &&
+        event.code !== 4001 &&
+        event.code !== 1008 &&
+        Date.now() < scope.grant.expiresAt;
+      // Keep revisions and grant revocation live while the relay is temporarily offline.
+      if (!canReconnect) {
+        stopTracking?.();
+        stopTracking = undefined;
+      }
       socket = undefined;
       useAgentConnection.setState({
         state: "disconnected",
         message: "Connection closed. Reconnect before editing.",
       });
+      if (scope && activeScope === scope && (event.code === 4001 || event.code === 1008))
+        activeScope = undefined;
+      if (canReconnect) {
+        reconnectTimer = setTimeout(() => {
+          if (activeScope === scope) openSocket(endpoint, api, scope);
+        }, 1500);
+      }
     }
   };
 }
@@ -324,6 +484,7 @@ export async function executeBrowserCommand(
   command: BrowserCommand,
   api: PlannerApi,
   isConnected: () => boolean = () => true,
+  scope?: BrowserScope,
 ) {
   const checkConnected = () => {
     if (!isConnected())
@@ -333,14 +494,19 @@ export async function executeBrowserCommand(
       );
   };
   const args = command.args;
+  if (scope && args.designId !== undefined && !scope.designIds.has(String(args.designId)))
+    throw new AgentError("PERMISSION_DENIED", "This design was not authorized.");
   if (command.method === "list_designs")
     return {
       ...status(),
-      designs: useDesignStore.getState().designs.map(({ id, name, cloud, taskBoard }) => ({
-        id,
-        name,
-        editable: !cloud && !taskBoard,
-      })),
+      designs: useDesignStore
+        .getState()
+        .designs.filter((entry) => !scope || scope.designIds.has(entry.id))
+        .map(({ id, name, cloud, taskBoard }) => ({
+          id,
+          name,
+          editable: !cloud && !taskBoard,
+        })),
     };
   if (command.method === "get_machine_options") {
     await checkDataset(api, args);
@@ -360,9 +526,28 @@ export async function executeBrowserCommand(
         "Read current status before changing the active design.",
       );
     if (command.method === "create_design") {
+      if (scope && (!scope.grant.allowCreate || scope.designIds.size >= 100))
+        throw new AgentError(
+          "PERMISSION_DENIED",
+          "New designs were not authorized, or the grant is full.",
+        );
       const name = z.string().min(1).max(80).parse(args.name);
       const project = createNewProject();
-      await useDesignStore.getState().importProjectAsDesign({ ...project, name }, name);
+      const capturedRevision = revision;
+      if (scope) scope.creating = true;
+      try {
+        await useDesignStore.getState().importProjectAsDesign({ ...project, name }, name, (id) => {
+          checkConnected();
+          if (scope && revision !== capturedRevision)
+            throw new AgentError(
+              "REVISION_CONFLICT",
+              "The design changed while creating a new one.",
+            );
+          scope?.designIds.add(id);
+        });
+      } finally {
+        if (scope) scope.creating = false;
+      }
     } else {
       const id = z.string().parse(args.designId);
       const target = useDesignStore.getState().designs.find((entry) => entry.id === id);

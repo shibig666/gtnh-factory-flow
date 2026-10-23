@@ -6,7 +6,7 @@ import {
   resourceRefSchema,
   AgentError,
 } from "@/lib/agent/protocol";
-import type { BrowserBridge } from "./bridge";
+import type { AgentConnection } from "./connection";
 
 const id = z.string().min(1).max(512);
 const dataset = z.object({ versionId: id, fingerprint: id }).strict();
@@ -27,7 +27,7 @@ export interface PlannerTool {
 
 export function createPlannerTools(
   api: PlannerApi,
-  bridge: Pick<BrowserBridge, "status" | "beginPairing" | "call">,
+  bridge: Pick<AgentConnection, "status" | "beginPairing" | "call">,
 ): PlannerTool[] {
   const tools: PlannerTool[] = [];
   function register<S extends z.ZodObject>(
@@ -60,7 +60,7 @@ export function createPlannerTools(
   );
   register(
     "begin_pairing",
-    "Create a pairing code for the local webpage's Settings > Agent panel. Replaces the previous browser connection.",
+    "Create a pairing code for the configured planner's Settings > Agent panel. The user authorizes a design and may allow new designs. Replaces the previous connection.",
     z.object({}).strict(),
     false,
     () => bridge.beginPairing(),
@@ -215,14 +215,14 @@ export function createPlannerTools(
   );
   register(
     "list_designs",
-    "List designs in the paired webpage's browser library.",
+    "List designs authorized by the paired webpage. Relay grants never expose the whole browser library.",
     z.object({}).strict(),
     true,
     (args) => bridge.call("list_designs", args),
   );
   register(
     "create_design",
-    "Create and open a new local design without overwriting an existing one.",
+    "Create and open a new browser design when the grant permits new designs. Existing designs are preserved.",
     z
       .object({
         sessionId: id,

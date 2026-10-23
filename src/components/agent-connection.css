@@ -11,7 +11,7 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.agent-connection input {
+.agent-connection input:not([type="checkbox"]) {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -21,6 +21,11 @@
   background: var(--ms-side);
   color: inherit;
   font: inherit;
+}
+.agent-connection-scope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .agent-connection-actions {
   display: flex;

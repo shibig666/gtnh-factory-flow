@@ -43,12 +43,14 @@ Working notes for contributors and AI agents are in [AGENTS.md](AGENTS.md) and t
 
 ## Agent integration
 
-The local MCP server lets Codex and Claude Code query recipes through the planner's HTTP
-API and build or modify a paired browser design. A companion skill guides target-driven
+The MCP server lets Codex and Claude Code query recipes through the planner's HTTP
+API and build or modify a paired browser design, locally or on a deployed HTTPS site. A companion skill guides target-driven
 planning and checks the actual solver result. See [setup and validation](docs/agent-integration.md).
 
 DeepSeek Harness users can install [a native DSH plugin](plugins/dsh-gtnh-planner/README.md).
 It registers planning tools and guidance through the DSH SDK, without MCP or skill installation.
+Both integrations share the same tools and connection modes. The [public relay deployment guide](docs/agent-relay.md)
+explains design pairing over outbound WSS with no extra client port, including symmetric NAT.
 
 ## License and credits
 

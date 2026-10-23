@@ -1,11 +1,15 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { PlannerApi } from "@/lib/agent/data-client";
-import { BrowserBridge } from "./bridge";
+import { createAgentConnection } from "@/lib/agent/create-connection";
+import type { ConnectionMode } from "@/lib/agent/connection";
 import { createMcpServer } from "./server";
 
 async function main() {
   const api = new PlannerApi(process.env.GTNH_PLANNER_URL ?? "http://localhost:3000");
-  const bridge = new BrowserBridge(api.baseUrl);
+  const mode = process.env.GTNH_AGENT_TRANSPORT ?? "auto";
+  if (!["auto", "local", "relay"].includes(mode))
+    throw new Error("GTNH_AGENT_TRANSPORT must be auto, local or relay.");
+  const bridge = createAgentConnection(api.baseUrl, mode as ConnectionMode);
   await bridge.start();
   const transport = serveStdio(() => createMcpServer(api, bridge), {
     onerror: (error) => console.error(error.message),
